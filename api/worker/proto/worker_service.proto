@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+option go_package = "github.com/MinhNghiaD/jobworker/api/worker/proto";
+
+package proto;
+
+service WorkerService {
+    // Start a job specified by the command and return a Job with its ID.
+    // If the job fails to start, the RPC will fail with the specified error.
+    rpc StartJob(Command) returns (Job) {}
+
+    // Stop a job specified by the stop request then return the status of the specified job.
+    // It will return the Job status if job is terminated successfully. Otherwise, the RPC will fail with a specified error.
+    rpc StopJob(StopRequest) returns (JobStatus) {}
+
+    // Query a the status of a job, specified by its ID. 
+    // The returned Job status includes the essential information about the job execution.
+    rpc QueryJob(Job) returns (JobStatus) {}
+
+    // Retrieve a stream of log and output of a job, specified by job ID.
+    rpc StreamLog(Job) returns (stream Log) {}
+}
+
+message Command {
+    // Requested command to be executed.
+    string cmd = 1;
+    // And its arguments.
+    repeated string args = 2;
+}
+
+message Job {
+    // UUID of the created job.
+    string id = 1;
+}
+
+message StopRequest {
+    // The Job to be stopped.
+    Job job = 1;
+    // Boolean flag indicate whether to force the process to stop immediately.
+    bool force = 2;
+}
+
+message Log {
+    // A line of job log
+    string entry = 1;
+}
+
+message JobStatus {
+    // The queried job.
+    Job job = 1;
+    // The executed command.
+    Command command = 2;
+    // The owner who request the job execution.
+    string owner = 3;
+    // The status of the job
+    ProcessStatus status = 4;
+}
+
+message ProcessStatus {
+    // The Process ID
+    int32 pid = 1;
+    // The Current State of the process
+    ProcessState state = 2;
+    // Process exit code. -1 if process is still running
+    int32 exitCode = 3;
+    // Amount of time in millisecond that this process ran in kernel mode
+    uint32 systemTime = 4;
+     // Amount of time in millisecond that this process ran in user mode
+    uint32 userTime = 5;
+    // Number of pages the process has in memory
+    uint32 residentSetSize = 6;
+}
+
+enum ProcessState {
+    // Process is running
+    RUNNING = 0;
+    // Process is sleeping and will wake up to handle signals
+    INTERRUPTIBLE_SLEEPING = 1;
+    // Process is blocked when performing a syscall
+    UNINTERRUPTIBLE_SLEEPING = 2;
+    // Stopped on a signal) or being traced
+    STOPPED = 3;
+    // Process has exited
+    EXITED = 4;
+    // Process is in zombie state
+    ZOMBIE = 5;
+    // Other non-listed states
+    UNKNOWN = 6;
+}
+
