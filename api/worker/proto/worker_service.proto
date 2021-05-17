@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/MinhNghiaD/jobworker/api/worker/proto";
+option go_package = ".;proto";
 
 package proto;
 
@@ -63,28 +63,14 @@ message ProcessStatus {
     ProcessState state = 2;
     // Process exit code. -1 if process is still running
     int32 exitCode = 3;
-    // Amount of time in millisecond that this process ran in kernel mode
-    uint32 systemTime = 4;
-     // Amount of time in millisecond that this process ran in user mode
-    uint32 userTime = 5;
-    // Number of pages the process has in memory
-    uint32 residentSetSize = 6;
 }
 
 enum ProcessState {
     // Process is running
     RUNNING = 0;
-    // Process is sleeping and will wake up to handle signals
-    INTERRUPTIBLE_SLEEPING = 1;
-    // Process is blocked when performing a syscall
-    UNINTERRUPTIBLE_SLEEPING = 2;
-    // Stopped on a signal) or being traced
-    STOPPED = 3;
-    // Process has exited
-    EXITED = 4;
-    // Process is in zombie state
-    ZOMBIE = 5;
-    // Other non-listed states
-    UNKNOWN = 6;
+    // Process is terminated by user
+    STOPPED = 1;
+    // Process has exited 
+    EXITED = 2;
 }
 
