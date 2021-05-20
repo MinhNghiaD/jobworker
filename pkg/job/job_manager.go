@@ -2,8 +2,9 @@ package job
 
 import (
 	"fmt"
-	"os/exec"
 	"sync"
+
+	exec "golang.org/x/sys/execabs"
 
 	"github.com/google/uuid"
 )

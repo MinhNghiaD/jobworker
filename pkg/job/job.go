@@ -1,10 +1,14 @@
 package job
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"sync"
+	"syscall"
+	"time"
+
+	exec "golang.org/x/sys/execabs"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -45,7 +49,6 @@ type JobImpl struct {
 }
 
 func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
-	// TODO Using namespaces to limit the effects of process on the system
 	return &JobImpl{
 		ID:    ID,
 		cmd:   cmd,
@@ -53,13 +56,31 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
 	}, nil
 }
 
-func (j *JobImpl) Start() error {
+func (j *JobImpl) Start() (err error) {
+	j.cmd.Stdin = nil
 	j.cmd.Stdout = os.Stdout
 	j.cmd.Stderr = os.Stdout
 
+	j.cmd.SysProcAttr = configNameSpace()
+
 	logrus.Infof("Starting j %s", j.ID)
 
-	err := j.cmd.Start()
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
+	defer cancel()
+
+	errChan := make(chan error, 1)
+	defer close(errChan)
+
+	go func() {
+		errChan <- j.cmd.Start()
+	}()
+
+	select {
+	case err = <-errChan:
+	case <-ctx.Done():
+		logrus.Infof("Start job %s deadline excedeed", j)
+		err = ctx.Err()
+	}
 
 	if err != nil {
 		j.changeState(STOPPED)
@@ -70,7 +91,6 @@ func (j *JobImpl) Start() error {
 
 	go func() {
 		if err := j.cmd.Wait(); err != nil {
-			// TODO error handling
 			logrus.Infof("Job %s terminated, reason %s", j.ID, err)
 		}
 
@@ -94,9 +114,39 @@ func (j *JobImpl) Status() ProcStat {
 	return ProcStat{}
 }
 
+func (j *JobImpl) String() string {
+	return j.cmd.String()
+}
+
 func (j *JobImpl) changeState(state State) {
 	j.stateMutex.Lock()
 	defer j.stateMutex.Unlock()
 
 	j.state = state
+}
+
+func configNameSpace() *syscall.SysProcAttr {
+	// TODO Continue to reinforce namespaces
+	return &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWIPC |
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNET |
+			syscall.CLONE_NEWUSER,
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getuid(),
+				Size:        1,
+			},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getgid(),
+				Size:        1,
+			},
+		},
+	}
 }

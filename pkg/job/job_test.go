@@ -55,22 +55,28 @@ func TestStartJobs(t *testing.T) {
 			false,
 		},
 		{
+			"whoami",
+			"whoami",
+			[]string{},
+			false,
+		},
+		{
 			"top",
 			"top",
-			[]string{"-b"},
+			[]string{"-c"},
 			false,
 		},
 		{
 			"High priviledge",
 			"apt",
 			[]string{"update"},
-			true,
+			false,
 		},
 		{
 			"sudo",
 			"sudo",
 			[]string{"apt", "update"},
-			true,
+			false,
 		},
 	}
 
