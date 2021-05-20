@@ -29,18 +29,24 @@ const (
 	STOPPED
 )
 
+// Job status, which includes PID, Job state and Process exit code
 type ProcStat struct {
 	PID      int
 	Stat     State
 	ExitCode int
 }
 
+// Job is managed by the worker for the execution of linux process
 type Job interface {
+	// Start the job in the background
 	Start() error
+	// Stop the job
 	Stop(force bool) error
+	// Query the current status of the job
 	Status() ProcStat
 }
 
+// The implementation of Job interface
 type JobImpl struct {
 	ID         uuid.UUID
 	cmd        *exec.Cmd
@@ -48,6 +54,7 @@ type JobImpl struct {
 	stateMutex sync.RWMutex
 }
 
+// Create a new job, associated with a unique ID and a Command
 func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
 	return &JobImpl{
 		ID:    ID,
@@ -56,6 +63,7 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
 	}, nil
 }
 
+// Start Running job in the background. The Start() function has a timeout period of 1 second
 func (j *JobImpl) Start() (err error) {
 	j.cmd.Stdin = nil
 	j.cmd.Stdout = os.Stdout
@@ -106,18 +114,22 @@ func (j *JobImpl) Start() (err error) {
 	return nil
 }
 
+// Stop a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *JobImpl) Stop(force bool) error {
 	return fmt.Errorf("Not implemented")
 }
 
+// Query the current statis of the job
 func (j *JobImpl) Status() ProcStat {
 	return ProcStat{}
 }
 
+// Return the command wrapped by the job
 func (j *JobImpl) String() string {
 	return j.cmd.String()
 }
 
+// Change the current state of the job
 func (j *JobImpl) changeState(state State) {
 	j.stateMutex.Lock()
 	defer j.stateMutex.Unlock()
@@ -125,6 +137,7 @@ func (j *JobImpl) changeState(state State) {
 	j.state = state
 }
 
+// Apply namespaces policy on the process
 func configNameSpace() *syscall.SysProcAttr {
 	// TODO Continue to reinforce namespaces
 	return &syscall.SysProcAttr{

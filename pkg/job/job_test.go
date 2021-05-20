@@ -15,13 +15,9 @@ func TestStartJobs(t *testing.T) {
 
 	// checker
 	checkStartCmd := func(cmd string, args []string) error {
-		j, err := manager.AddJob(cmd, args)
+		_, err := manager.CreateJob(cmd, args)
 
-		if err != nil {
-			return err
-		}
-
-		return j.Start()
+		return err
 	}
 
 	testcases := []struct {
