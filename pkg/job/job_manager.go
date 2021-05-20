@@ -1,10 +1,12 @@
 package job
 
 import (
+	"fmt"
 	"sync"
 
 	exec "golang.org/x/sys/execabs"
 
+	"github.com/MinhNghiaD/jobworker/pkg/log"
 	"github.com/google/uuid"
 )
 
@@ -20,27 +22,44 @@ type JobsManager interface {
 
 // the implementation of the Jobs manager
 type JobsManagerImpl struct {
-	jobStore map[string]Job
-	mutex    sync.RWMutex
+	jobStore    map[string]Job
+	logsManager *log.LogsManager
+	mutex       sync.RWMutex
 }
 
 // Create a new Job Manager with its dedicated space
 func NewManager() (JobsManager, error) {
+	logsManager, err := log.NewManager()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &JobsManagerImpl{
-		jobStore: make(map[string]Job),
+		jobStore:    make(map[string]Job),
+		logsManager: logsManager,
 	}, nil
 }
 
 // Start a new job in the background with the command and its arguments
 func (manager *JobsManagerImpl) CreateJob(command string, args []string) (string, error) {
+	if manager.logsManager == nil {
+		return "", fmt.Errorf("Log Manager is not iniatiated")
+	}
+
 	if _, err := exec.LookPath(command); err != nil {
 		return "", err
 	}
 
 	cmd := exec.Command(command, args...)
 	ID := uuid.New()
+	logger, err := manager.logsManager.NewLogger(ID.String())
 
-	j, err := newJob(ID, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	j, err := newJob(ID, cmd, logger)
 
 	if err != nil {
 		return "", err
@@ -76,5 +95,5 @@ func (manager *JobsManagerImpl) Cleanup() error {
 		j.Stop(true)
 	}
 
-	return nil
+	return manager.logsManager.Cleanup()
 }

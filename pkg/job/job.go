@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+
+	"github.com/MinhNghiaD/jobworker/pkg/log"
 )
 
 type State int
@@ -51,17 +53,19 @@ type Job interface {
 type JobImpl struct {
 	id         uuid.UUID
 	cmd        *exec.Cmd
+	logger     *log.Logger
 	state      State
 	stateMutex sync.RWMutex
 	waitExit   sync.WaitGroup
 }
 
 // Create a new job, associated with a unique ID and a Command
-func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
+func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger) (Job, error) {
 	return &JobImpl{
-		id:    ID,
-		cmd:   cmd,
-		state: QUEUING,
+		id:     ID,
+		cmd:    cmd,
+		logger: logger,
+		state:  QUEUING,
 	}, nil
 }
 
@@ -72,12 +76,15 @@ func (j *JobImpl) ID() string {
 // Start Running job in the background. The Start() function has a timeout period of 1 second
 func (j *JobImpl) Start() error {
 	j.cmd.Stdin = nil
-	j.cmd.Stdout = os.Stdout
-	j.cmd.Stderr = os.Stdout
+	stdoutLog := j.logger.Entry.WithField("source", "stdout").Writer()
+	stderrLog := j.logger.Entry.WithField("source", "stderr").Writer()
+
+	j.cmd.Stdout = stdoutLog
+	j.cmd.Stderr = stderrLog
 
 	j.cmd.SysProcAttr = configNameSpace()
 
-	logrus.Infof("Starting j %s", j.id)
+	logrus.Infof("Starting job %s", j.id)
 
 	err := j.cmd.Start()
 
@@ -88,25 +95,32 @@ func (j *JobImpl) Start() error {
 
 	j.changeState(RUNNING)
 
+	// For the waiting of Stop
 	j.waitExit.Add(1)
 
 	go func() {
 		defer j.waitExit.Done()
 
 		if err := j.cmd.Wait(); err != nil {
-			logrus.Infof("Job %s terminated, reason %s", j.id, err)
+			j.logger.Entry.Infof("Job %s terminated, reason %s", j.id, err)
 		}
 
-		logrus.Infof("Exiting job %s", j.id)
+		j.logger.Entry.Infof("Exiting job %s", j.id)
 
 		j.changeState(EXITED)
-		/*
-			if j.cmd.ProcessState != nil && (j.cmd.ProcessState.Exited() != false || j.cmd.ProcessState.ExitCode() < 0) {
-				j.changeState(STOPPED)
-			} else {
 
-			}
-		*/
+		// Close logger
+		if err := stdoutLog.Close(); err != nil {
+			logrus.Errorln(err)
+		}
+
+		if err := stderrLog.Close(); err != nil {
+			logrus.Errorln(err)
+		}
+
+		if err := j.logger.Close(); err != nil {
+			logrus.Errorln(err)
+		}
 	}()
 
 	return nil
