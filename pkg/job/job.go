@@ -56,16 +56,17 @@ type JobImpl struct {
 	logger     *log.Logger
 	state      State
 	stateMutex sync.RWMutex
-	waitExit   sync.WaitGroup
+	exitChan   chan bool
 }
 
 // Create a new job, associated with a unique ID and a Command
 func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger) (Job, error) {
 	return &JobImpl{
-		id:     ID,
-		cmd:    cmd,
-		logger: logger,
-		state:  QUEUING,
+		id:       ID,
+		cmd:      cmd,
+		logger:   logger,
+		state:    QUEUING,
+		exitChan: make(chan bool, 1),
 	}, nil
 }
 
@@ -95,19 +96,10 @@ func (j *JobImpl) Start() error {
 
 	j.changeState(RUNNING)
 
-	// For the waiting of Stop
-	j.waitExit.Add(1)
-
 	go func() {
-		defer j.waitExit.Done()
-
 		if err := j.cmd.Wait(); err != nil {
 			j.logger.Entry.Infof("Job %s terminated, reason %s", j.id, err)
 		}
-
-		j.logger.Entry.Infof("Exiting job %s", j.id)
-
-		j.changeState(EXITED)
 
 		// Close logger
 		if err := stdoutLog.Close(); err != nil {
@@ -118,9 +110,18 @@ func (j *JobImpl) Start() error {
 			logrus.Errorln(err)
 		}
 
+		j.logger.Entry.Infof("Exiting job %s", j.id)
+
 		if err := j.logger.Close(); err != nil {
 			logrus.Errorln(err)
 		}
+
+		j.changeState(EXITED)
+
+		// Inform stop caller to finish.
+		// The channel buffer size is 1, so if this job exit naturally, it won't be blocked
+		j.exitChan <- true
+		close(j.exitChan)
 	}()
 
 	return nil
@@ -142,17 +143,12 @@ func (j *JobImpl) Stop(force bool) error {
 		}
 	}
 
-	// Wait for the job to terminated
-	timeoutChan := make(chan error, 1)
-	go func() {
-		defer close(timeoutChan)
-		j.waitExit.Wait()
-	}()
-
 	select {
-	case <-timeoutChan:
+	case _, ok := <-j.exitChan:
+		if !ok {
+			return fmt.Errorf("Job is already stopped")
+		}
 	case <-time.After(time.Second):
-		logrus.Infof("Stop job %s deadline excedeed", j)
 		return fmt.Errorf("Fail to stop job, timeout")
 	}
 
@@ -163,23 +159,22 @@ func (j *JobImpl) Stop(force bool) error {
 
 // Query the current statis of the job
 func (j *JobImpl) Status() ProcStat {
-	j.stateMutex.RLock()
-	defer j.stateMutex.RUnlock()
+	state := j.getState()
 
 	pid := -1
 	exitcode := -1
 
-	if j.cmd.Process != nil {
+	if state > QUEUING && j.cmd.Process != nil {
 		pid = j.cmd.Process.Pid
 	}
 
-	if j.cmd.ProcessState != nil {
+	if state > RUNNING && j.cmd.ProcessState != nil {
 		exitcode = j.cmd.ProcessState.ExitCode()
 	}
 
 	return ProcStat{
 		PID:      pid,
-		Stat:     j.state,
+		Stat:     state,
 		ExitCode: exitcode,
 	}
 }

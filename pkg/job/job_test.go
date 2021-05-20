@@ -3,6 +3,7 @@ package job_test
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -538,10 +539,16 @@ func TestConcurrence(t *testing.T) {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	// Simulate client random access
 	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+
 		go func() {
-			for j := 0; j < 1000; j++ {
+			defer wg.Done()
+
+			for j := 0; j < 100; j++ {
 				jobID := jobIDs[rand.Int()%len(jobIDs)]
 
 				time.Sleep(50 * time.Millisecond)
@@ -553,7 +560,7 @@ func TestConcurrence(t *testing.T) {
 					continue
 				}
 
-				if err := j.Stop(rand.Int()%2 == 1); err != nil {
+				if err := j.Stop(false); err != nil {
 					logrus.Infof("Stop %v", err)
 				}
 
@@ -561,6 +568,8 @@ func TestConcurrence(t *testing.T) {
 			}
 		}()
 	}
+
+	wg.Wait()
 }
 
 func randomString(length int) string {
