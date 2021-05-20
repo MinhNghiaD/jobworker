@@ -11,32 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
+	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 )
 
 type State int
-
-const (
-	// TODO Handle QUEUING state when job queue and scheduler is implemented
-	// For now, the job will be start immediately after created
-	// Process waiting to be executed
-	QUEUING State = iota
-	// Process is running
-	RUNNING
-	// Process exited normally
-	EXITED
-	// Process stopped by a signal
-	STOPPED
-)
-
-// Job status, which includes PID, Job state and Process exit code
-type ProcStat struct {
-	PID      int
-	Stat     State
-	ExitCode int
-	Owner    string
-	Cmd      string
-}
 
 // Job is managed by the worker for the execution of linux process
 type Job interface {
@@ -47,8 +26,12 @@ type Job interface {
 	// Stop the job
 	Stop(force bool) error
 	// Query the current status of the job
-	Status() ProcStat
+	Status() *proto.JobStatus
 }
+
+// TODO Handle QUEUING state when job queue and scheduler is implemented
+// For now, the job will be start immediately after created
+// Process waiting to be executed
 
 // The implementation of Job interface
 type JobImpl struct {
@@ -56,7 +39,7 @@ type JobImpl struct {
 	cmd        *exec.Cmd
 	logger     *log.Logger
 	owner      string
-	state      State
+	state      proto.ProcessState
 	stateMutex sync.RWMutex
 	exitChan   chan bool
 }
@@ -68,7 +51,7 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job,
 		cmd:      cmd,
 		logger:   logger,
 		owner:    owner,
-		state:    QUEUING,
+		state:    proto.ProcessState_RUNNING,
 		exitChan: make(chan bool, 1),
 	}, nil
 }
@@ -94,11 +77,9 @@ func (j *JobImpl) Start() error {
 	err := j.cmd.Start()
 
 	if err != nil {
-		j.changeState(STOPPED)
+		j.changeState(proto.ProcessState_STOPPED)
 		return err
 	}
-
-	j.changeState(RUNNING)
 
 	go func() {
 		if err := j.cmd.Wait(); err != nil {
@@ -120,7 +101,7 @@ func (j *JobImpl) Start() error {
 			logrus.Errorln(err)
 		}
 
-		j.changeState(EXITED)
+		j.changeState(proto.ProcessState_EXITED)
 
 		// Inform stop caller to finish.
 		// The channel buffer size is 1, so if this job exit naturally, it won't be blocked
@@ -133,7 +114,7 @@ func (j *JobImpl) Start() error {
 
 // Stop a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *JobImpl) Stop(force bool) error {
-	if j.getState() != RUNNING || j.cmd.Process == nil {
+	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
 		return fmt.Errorf("Job not running")
 	}
 
@@ -159,31 +140,34 @@ func (j *JobImpl) Stop(force bool) error {
 		return fmt.Errorf("Fail to stop job, timeout")
 	}
 
-	j.changeState(STOPPED)
+	j.changeState(proto.ProcessState_STOPPED)
 
 	return nil
 }
 
 // Query the current statis of the job
-func (j *JobImpl) Status() ProcStat {
+func (j *JobImpl) Status() *proto.JobStatus {
 	state := j.getState()
 	pid := -1
 	exitcode := -1
 
-	if state > QUEUING && j.cmd.Process != nil {
+	if j.cmd.Process != nil {
 		pid = j.cmd.Process.Pid
 	}
 
-	if state > RUNNING && j.cmd.ProcessState != nil {
+	if state > proto.ProcessState_RUNNING && j.cmd.ProcessState != nil {
 		exitcode = j.cmd.ProcessState.ExitCode()
 	}
 
-	return ProcStat{
-		PID:      pid,
-		Stat:     state,
-		ExitCode: exitcode,
-		Owner:    j.owner,
-		Cmd:      j.String(),
+	return &proto.JobStatus{
+		Job:     &proto.Job{Id: j.ID()},
+		Command: &proto.Command{Cmd: j.String()},
+		Owner:   j.owner,
+		Status: &proto.ProcessStatus{
+			Pid:      int32(pid),
+			State:    state,
+			ExitCode: int32(exitcode),
+		},
 	}
 }
 
@@ -193,7 +177,7 @@ func (j *JobImpl) String() string {
 }
 
 // Read current job state with mutex read protection
-func (j *JobImpl) getState() State {
+func (j *JobImpl) getState() proto.ProcessState {
 	j.stateMutex.RLock()
 	defer j.stateMutex.RUnlock()
 
@@ -201,7 +185,7 @@ func (j *JobImpl) getState() State {
 }
 
 // Change the current state of the job
-func (j *JobImpl) changeState(state State) {
+func (j *JobImpl) changeState(state proto.ProcessState) {
 	j.stateMutex.Lock()
 	defer j.stateMutex.Unlock()
 

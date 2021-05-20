@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 )
 
@@ -127,7 +128,7 @@ func TestGetJobStatus(t *testing.T) {
 	}()
 
 	// checker
-	checkStatusJob := func(cmd string, args []string, expectedStatus *job.ProcStat) error {
+	checkStatusJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
 		jobID, err := manager.CreateJob(cmd, args, "test user")
 
 		if err != nil {
@@ -148,7 +149,7 @@ func TestGetJobStatus(t *testing.T) {
 
 		status := j.Status()
 
-		if (status.Stat != expectedStatus.Stat) || (status.ExitCode != expectedStatus.ExitCode) {
+		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
 			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
 		}
 
@@ -159,15 +160,15 @@ func TestGetJobStatus(t *testing.T) {
 		name       string
 		cmd        string
 		args       []string
-		expectStat *job.ProcStat
+		expectStat *proto.ProcessStatus
 		expectErr  bool
 	}{
 		{
 			"Empty Command",
 			"",
 			[]string{},
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			true,
@@ -176,8 +177,8 @@ func TestGetJobStatus(t *testing.T) {
 			"Non exist command",
 			"abc",
 			[]string{},
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			true,
@@ -186,8 +187,8 @@ func TestGetJobStatus(t *testing.T) {
 			"Short term command",
 			"ls",
 			[]string{"-la"},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			false,
@@ -196,8 +197,8 @@ func TestGetJobStatus(t *testing.T) {
 			"File access",
 			"mkdir",
 			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			false,
@@ -206,8 +207,8 @@ func TestGetJobStatus(t *testing.T) {
 			"User identity",
 			"whoami",
 			[]string{},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			false,
@@ -216,8 +217,8 @@ func TestGetJobStatus(t *testing.T) {
 			"long running",
 			"top",
 			[]string{"-b"},
-			&job.ProcStat{
-				Stat:     job.RUNNING,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
 				ExitCode: -1,
 			},
 			false,
@@ -226,8 +227,8 @@ func TestGetJobStatus(t *testing.T) {
 			"High priviledge",
 			"apt",
 			[]string{"update"},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
 			},
 			false,
@@ -236,8 +237,8 @@ func TestGetJobStatus(t *testing.T) {
 			"sudo",
 			"sudo",
 			[]string{"apt", "update"},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 1,
 			},
 			false,
@@ -246,8 +247,8 @@ func TestGetJobStatus(t *testing.T) {
 			"bad args",
 			"ls",
 			[]string{"-wrong"},
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 2,
 			},
 			false,
@@ -280,7 +281,7 @@ func TestStopJob(t *testing.T) {
 	}()
 
 	// checker
-	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *job.ProcStat) error {
+	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
 		jobID, err := manager.CreateJob(cmd, args, "test user")
 
 		if err != nil {
@@ -301,7 +302,7 @@ func TestStopJob(t *testing.T) {
 
 		status := j.Status()
 
-		if (status.Stat != expectedStatus.Stat) || (status.ExitCode != expectedStatus.ExitCode) {
+		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
 			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
 		}
 
@@ -313,7 +314,7 @@ func TestStopJob(t *testing.T) {
 		cmd        string
 		args       []string
 		forceStop  bool
-		expectStat *job.ProcStat
+		expectStat *proto.ProcessStatus
 		expectErr  bool
 	}{
 		{
@@ -321,8 +322,8 @@ func TestStopJob(t *testing.T) {
 			"",
 			[]string{},
 			false,
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			true,
@@ -332,8 +333,8 @@ func TestStopJob(t *testing.T) {
 			"abc",
 			[]string{},
 			false,
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			true,
@@ -343,8 +344,8 @@ func TestStopJob(t *testing.T) {
 			"ls",
 			[]string{"-la"},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			true,
@@ -354,8 +355,8 @@ func TestStopJob(t *testing.T) {
 			"mkdir",
 			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			true,
@@ -365,8 +366,8 @@ func TestStopJob(t *testing.T) {
 			"whoami",
 			[]string{},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
 			true,
@@ -376,8 +377,8 @@ func TestStopJob(t *testing.T) {
 			"top",
 			[]string{"-b"},
 			false,
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: 0,
 			},
 			false,
@@ -387,8 +388,8 @@ func TestStopJob(t *testing.T) {
 			"top",
 			[]string{"-b"},
 			true,
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			false,
@@ -398,8 +399,8 @@ func TestStopJob(t *testing.T) {
 			"apt",
 			[]string{"update"},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
 			},
 			true,
@@ -409,8 +410,8 @@ func TestStopJob(t *testing.T) {
 			"sudo",
 			[]string{"apt", "update"},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 1,
 			},
 			true,
@@ -420,8 +421,8 @@ func TestStopJob(t *testing.T) {
 			"ls",
 			[]string{"-wrong"},
 			false,
-			&job.ProcStat{
-				Stat:     job.EXITED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
 				ExitCode: 2,
 			},
 			true,
@@ -431,8 +432,8 @@ func TestStopJob(t *testing.T) {
 			"bash",
 			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
 			false,
-			&job.ProcStat{
-				Stat:     job.RUNNING,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
 				ExitCode: -1,
 			},
 			true,
@@ -442,8 +443,8 @@ func TestStopJob(t *testing.T) {
 			"bash",
 			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
 			true,
-			&job.ProcStat{
-				Stat:     job.STOPPED,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
 			false,

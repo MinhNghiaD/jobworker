@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 type WorkerService struct {
@@ -57,18 +60,7 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 		return nil, err
 	}
 
-	status := j.Status()
-
-	return &proto.JobStatus{
-		Job:     request.Job,
-		Command: &proto.Command{Cmd: status.Cmd},
-		Owner:   status.Owner,
-		Status: &proto.ProcessStatus{
-			Pid:      int32(status.PID),
-			State:    protoState(status.Stat),
-			ExitCode: int32(status.ExitCode),
-		},
-	}, nil
+	return j.Status(), nil
 }
 
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
@@ -83,18 +75,7 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 		return nil, fmt.Errorf("Job not found")
 	}
 
-	status := j.Status()
-
-	return &proto.JobStatus{
-		Job:     protoJob,
-		Command: &proto.Command{Cmd: status.Cmd},
-		Owner:   status.Owner,
-		Status: &proto.ProcessStatus{
-			Pid:      int32(status.PID),
-			State:    protoState(status.Stat),
-			ExitCode: int32(status.ExitCode),
-		},
-	}, nil
+	return j.Status(), nil
 }
 
 func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
@@ -109,13 +90,23 @@ func (service *WorkerService) Cleanup() error {
 	return service.jobsManager.Cleanup()
 }
 
-func protoState(state job.State) proto.ProcessState {
-	switch state {
-	case job.EXITED:
-		return proto.ProcessState_EXITED
-	case job.STOPPED:
-		return proto.ProcessState_STOPPED
+func ServerConfig() []grpc.ServerOption {
+	opts := make([]grpc.ServerOption, 0)
+
+	keepalivePolicy := keepalive.ServerParameters{
+		Time:    60 * time.Second,
+		Timeout: 180 * time.Second,
 	}
 
-	return proto.ProcessState_RUNNING
+	enforcementPolicy := keepalive.EnforcementPolicy{
+		MinTime:             60 * time.Second,
+		PermitWithoutStream: true,
+	}
+
+	// TODO add TLS and Interceptors
+	opts = append(opts, grpc.KeepaliveParams(keepalivePolicy))
+	opts = append(opts, grpc.KeepaliveEnforcementPolicy(enforcementPolicy))
+	opts = append(opts, grpc.MaxConcurrentStreams(1000))
+
+	return opts
 }
