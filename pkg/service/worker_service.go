@@ -30,7 +30,8 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 		return nil, fmt.Errorf("Job Managers is not ready")
 	}
 
-	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args)
+	// TODO Get Owner common name from certificate
+	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 
 	if err != nil {
 		return nil, err
@@ -45,10 +46,43 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 	return nil, fmt.Errorf("Unimplemented")
 }
 
-func (service *WorkerService) QueryJob(ctx context.Context, job *proto.Job) (*proto.JobStatus, error) {
-	return nil, fmt.Errorf("Unimplemented")
+func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
+	if service.jobsManager == nil {
+		return nil, fmt.Errorf("Job Managers is not ready")
+	}
+
+	// TODO Get Owner common name from certificate
+	j, ok := service.jobsManager.GetJob(protoJob.Id)
+
+	if !ok {
+		return nil, fmt.Errorf("Job not found")
+	}
+
+	status := j.Status()
+
+	return &proto.JobStatus{
+		Job:     protoJob,
+		Command: &proto.Command{Cmd: status.Cmd},
+		Owner:   status.Owner,
+		Status: &proto.ProcessStatus{
+			Pid:      int32(status.PID),
+			State:    protoState(status.Stat),
+			ExitCode: int32(status.ExitCode),
+		},
+	}, nil
 }
 
 func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
 	return fmt.Errorf("Unimplemented")
+}
+
+func protoState(state job.State) proto.ProcessState {
+	switch state {
+	case job.EXITED:
+		return proto.ProcessState_EXITED
+	case job.STOPPED:
+		return proto.ProcessState_STOPPED
+	}
+
+	return proto.ProcessState_RUNNING
 }

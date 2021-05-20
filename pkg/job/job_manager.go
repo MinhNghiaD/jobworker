@@ -12,7 +12,7 @@ import (
 // Jobs manager is the interface for the externals to create and access to job
 type JobsManager interface {
 	// Create a new job and Start running it in the background with the command and its arguments, then return its ID
-	CreateJob(command string, args []string) (string, error)
+	CreateJob(command string, args []string, owner string) (string, error)
 	// Return a created job corresponding to the ID, if the job is not existed, return nil
 	GetJob(ID string) (Job, bool)
 	// Perform clean up
@@ -41,7 +41,7 @@ func NewManager() (JobsManager, error) {
 }
 
 // Start a new job in the background with the command and its arguments
-func (manager *JobsManagerImpl) CreateJob(command string, args []string) (string, error) {
+func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner string) (string, error) {
 	if manager.logsManager == nil {
 		return "", fmt.Errorf("Log Manager is not iniatiated")
 	}
@@ -58,7 +58,7 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string) (string
 		return "", err
 	}
 
-	j, err := newJob(ID, cmd, logger)
+	j, err := newJob(ID, cmd, logger, owner)
 
 	if err != nil {
 		return "", err

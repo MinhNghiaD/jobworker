@@ -260,7 +260,7 @@ func TestGetJobStatus(t *testing.T) {
 			[]string{"-wrong"},
 			&proto.ProcessStatus{
 				State:    proto.ProcessState_EXITED,
-				ExitCode: 1,
+				ExitCode: 2,
 			},
 			false,
 		},

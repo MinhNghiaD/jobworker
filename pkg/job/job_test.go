@@ -26,7 +26,7 @@ func TestStartJobs(t *testing.T) {
 
 	// checker
 	checkStartCmd := func(cmd string, args []string) error {
-		jobID, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args, "test user")
 
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func TestGetJobStatus(t *testing.T) {
 
 	// checker
 	checkStatusJob := func(cmd string, args []string, expectedStatus *job.ProcStat) error {
-		jobID, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args, "test user")
 
 		if err != nil {
 			return err
@@ -283,7 +283,7 @@ func TestStopJob(t *testing.T) {
 
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *job.ProcStat) error {
-		jobID, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args, "test user")
 
 		if err != nil {
 			return err
@@ -533,7 +533,7 @@ func TestConcurrence(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, testCase := range testcases {
-			if jobID, err := manager.CreateJob(testCase.cmd, testCase.args); err == nil {
+			if jobID, err := manager.CreateJob(testCase.cmd, testCase.args, "test user"); err == nil {
 				jobIDs = append(jobIDs, jobID)
 			}
 		}

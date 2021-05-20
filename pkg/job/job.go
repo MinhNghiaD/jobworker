@@ -34,6 +34,8 @@ type ProcStat struct {
 	PID      int
 	Stat     State
 	ExitCode int
+	Owner    string
+	Cmd      string
 }
 
 // Job is managed by the worker for the execution of linux process
@@ -53,17 +55,19 @@ type JobImpl struct {
 	id         uuid.UUID
 	cmd        *exec.Cmd
 	logger     *log.Logger
+	owner      string
 	state      State
 	stateMutex sync.RWMutex
 	exitChan   chan bool
 }
 
 // Create a new job, associated with a unique ID and a Command
-func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger) (Job, error) {
+func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job, error) {
 	return &JobImpl{
 		id:       ID,
 		cmd:      cmd,
 		logger:   logger,
+		owner:    owner,
 		state:    QUEUING,
 		exitChan: make(chan bool, 1),
 	}, nil
@@ -175,6 +179,8 @@ func (j *JobImpl) Status() ProcStat {
 		PID:      pid,
 		Stat:     state,
 		ExitCode: exitcode,
+		Owner:    j.owner,
+		Cmd:      j.String(),
 	}
 }
 
