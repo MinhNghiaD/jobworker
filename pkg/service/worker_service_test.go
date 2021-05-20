@@ -164,7 +164,7 @@ func TestGetJobStatus(t *testing.T) {
 			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
 		}
 
-		return err
+		return nil
 	}
 
 	testcases := []struct {
@@ -269,6 +269,207 @@ func TestGetJobStatus(t *testing.T) {
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
 			err := checkQueryJob(testCase.cmd, testCase.args, testCase.expectStat)
+
+			if (err != nil) != (testCase.expectErr) {
+				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
+				return
+			}
+		})
+	}
+}
+
+func TestStopJob(t *testing.T) {
+	server, listener := newTestServer()
+
+	go server.Serve(listener)
+	defer listener.Close()
+
+	clientConn := newTestClientConn()
+	defer clientConn.Close()
+	client := proto.NewWorkerServiceClient(clientConn)
+
+	// checker
+	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+		command := &proto.Command{
+			Cmd:  cmd,
+			Args: args,
+		}
+
+		job, err := client.StartJob(ctx, command)
+
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Started job %s", job)
+
+		time.Sleep(time.Second)
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		status, err := client.StopJob(ctx, &proto.StopRequest{Job: job, Force: force})
+
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Job status %s", status)
+
+		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
+			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
+		}
+
+		return nil
+	}
+
+	testcases := []struct {
+		name       string
+		cmd        string
+		args       []string
+		forceStop  bool
+		expectStat *proto.ProcessStatus
+		expectErr  bool
+	}{
+		{
+			"Empty Command",
+			"",
+			[]string{},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"Non exist command",
+			"abc",
+			[]string{},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"Sort term command",
+			"ls",
+			[]string{"-la"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			true,
+		},
+		{
+			"File access",
+			"mkdir",
+			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			true,
+		},
+		{
+			"User identity",
+			"whoami",
+			[]string{},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			true,
+		},
+		{
+			"long running",
+			"top",
+			[]string{"-b"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: 0,
+			},
+			false,
+		},
+		{
+			"long running force stop",
+			"top",
+			[]string{"-b"},
+			true,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			false,
+		},
+		{
+			"High priviledge",
+			"apt",
+			[]string{"update"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 100,
+			},
+			true,
+		},
+		{
+			"sudo",
+			"sudo",
+			[]string{"apt", "update"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 1,
+			},
+			true,
+		},
+		{
+			"bad args",
+			"ls",
+			[]string{"-wrong"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 2,
+			},
+			true,
+		},
+		{
+			"mask signals",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			false,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"mask signals force stop",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			true,
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			false,
+		},
+	}
+
+	for _, testCase := range testcases {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := checkStopJob(testCase.cmd, testCase.args, testCase.forceStop, testCase.expectStat)
 
 			if (err != nil) != (testCase.expectErr) {
 				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
