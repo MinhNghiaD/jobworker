@@ -13,7 +13,6 @@ PROTODIR := "./api/worker/proto"
 update-vendor:
 	# update modules in root directory
 	go mod tidy
-	go mod vendor
 
 .PHONY: proto
 worker_service.pb.go: 
