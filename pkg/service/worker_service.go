@@ -43,7 +43,32 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 }
 
 func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
-	return nil, fmt.Errorf("Unimplemented")
+	if service.jobsManager == nil {
+		return nil, fmt.Errorf("Job Managers is not ready")
+	}
+
+	j, ok := service.jobsManager.GetJob(request.Job.Id)
+
+	if !ok {
+		return nil, fmt.Errorf("Job not found")
+	}
+
+	if err := j.Stop(request.Force); err != nil {
+		return nil, err
+	}
+
+	status := j.Status()
+
+	return &proto.JobStatus{
+		Job:     request.Job,
+		Command: &proto.Command{Cmd: status.Cmd},
+		Owner:   status.Owner,
+		Status: &proto.ProcessStatus{
+			Pid:      int32(status.PID),
+			State:    protoState(status.Stat),
+			ExitCode: int32(status.ExitCode),
+		},
+	}, nil
 }
 
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
