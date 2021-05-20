@@ -76,6 +76,14 @@ func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerServi
 	return fmt.Errorf("Unimplemented")
 }
 
+func (service *WorkerService) Cleanup() error {
+	if service.jobsManager == nil {
+		return fmt.Errorf("Job Managers is not ready")
+	}
+
+	return service.jobsManager.Cleanup()
+}
+
 func protoState(state job.State) proto.ProcessState {
 	switch state {
 	case job.EXITED:
