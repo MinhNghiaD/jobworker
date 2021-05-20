@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+// NOTE we won't use context timeout for grpc testing because the respond time in test is not fast enough
+
 func TestStartJobs(t *testing.T) {
 	server, listener := newTestServer()
 
@@ -27,15 +29,12 @@ func TestStartJobs(t *testing.T) {
 
 	// checker
 	checkStartJob := func(cmd string, args []string) error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
 		command := &proto.Command{
 			Cmd:  cmd,
 			Args: args,
 		}
 
-		job, err := client.StartJob(ctx, command)
+		job, err := client.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -132,14 +131,12 @@ func TestGetJobStatus(t *testing.T) {
 
 	// checker
 	checkQueryJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-
 		command := &proto.Command{
 			Cmd:  cmd,
 			Args: args,
 		}
 
-		job, err := client.StartJob(ctx, command)
+		job, err := client.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -149,10 +146,7 @@ func TestGetJobStatus(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
-		status, err := client.QueryJob(ctx, job)
+		status, err := client.QueryJob(context.Background(), job)
 
 		if err != nil {
 			return err
@@ -290,14 +284,12 @@ func TestStopJob(t *testing.T) {
 
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-
 		command := &proto.Command{
 			Cmd:  cmd,
 			Args: args,
 		}
 
-		job, err := client.StartJob(ctx, command)
+		job, err := client.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -307,10 +299,7 @@ func TestStopJob(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
-		status, err := client.StopJob(ctx, &proto.StopRequest{Job: job, Force: force})
+		status, err := client.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
 
 		if err != nil {
 			return err

@@ -79,6 +79,7 @@ func (j *JobImpl) ID() string {
 
 // Start Running job in the background. The Start() function has a timeout period of 1 second
 func (j *JobImpl) Start() error {
+	// IO Mapping
 	j.cmd.Stdin = nil
 	stdoutLog := j.logger.Entry.WithField("source", "stdout").Writer()
 	stderrLog := j.logger.Entry.WithField("source", "stderr").Writer()
@@ -136,6 +137,7 @@ func (j *JobImpl) Stop(force bool) error {
 		return fmt.Errorf("Job not running")
 	}
 
+	// Use SIGKILL to force the process to stop immediately, otherwise we will use SIGTERM
 	if force {
 		if err := j.cmd.Process.Signal(os.Kill); err != nil {
 			return err
@@ -146,9 +148,11 @@ func (j *JobImpl) Stop(force bool) error {
 		}
 	}
 
+	// Wait for the job to exit with timeout of 1s
 	select {
 	case _, ok := <-j.exitChan:
 		if !ok {
+			// exit channel is already closed, which means the process is already exited
 			return fmt.Errorf("Job is already stopped")
 		}
 	case <-time.After(time.Second):
@@ -163,7 +167,6 @@ func (j *JobImpl) Stop(force bool) error {
 // Query the current statis of the job
 func (j *JobImpl) Status() ProcStat {
 	state := j.getState()
-
 	pid := -1
 	exitcode := -1
 

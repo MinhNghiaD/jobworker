@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestConcurrence(t *testing.T) {
+func TestConcurrency(t *testing.T) {
 	manager, err := job.NewManager()
 
 	if err != nil {
@@ -88,7 +88,7 @@ func TestConcurrence(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Simulate client random access
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
 
 		go func() {
