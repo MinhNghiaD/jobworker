@@ -163,6 +163,9 @@ func (j *JobImpl) Stop(force bool) error {
 
 // Query the current statis of the job
 func (j *JobImpl) Status() ProcStat {
+	j.stateMutex.RLock()
+	defer j.stateMutex.RUnlock()
+
 	pid := -1
 	exitcode := -1
 
@@ -176,7 +179,7 @@ func (j *JobImpl) Status() ProcStat {
 
 	return ProcStat{
 		PID:      pid,
-		Stat:     j.getState(),
+		Stat:     j.state,
 		ExitCode: exitcode,
 	}
 }
