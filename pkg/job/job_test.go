@@ -390,6 +390,28 @@ func TestStopJob(t *testing.T) {
 			},
 			true,
 		},
+		{
+			"mask signals",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			false,
+			&job.ProcStat{
+				Stat:     job.RUNNING,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"mask signals force stop",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			true,
+			&job.ProcStat{
+				Stat:     job.STOPPED,
+				ExitCode: -1,
+			},
+			false,
+		},
 	}
 
 	for _, testCase := range testcases {
