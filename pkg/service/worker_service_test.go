@@ -3,29 +3,35 @@ package service_test
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
-	"net"
 	"testing"
 	"time"
 
+	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 // NOTE we won't use context timeout for grpc testing because the respond time in test is not fast enough
 
 func TestStartJobs(t *testing.T) {
-	server, listener := newTestServer()
+	server, err := service.NewServer(7777)
 
-	go server.Serve(listener)
-	defer listener.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	clientConn := newTestClientConn()
-	defer clientConn.Close()
-	client := proto.NewWorkerServiceClient(clientConn)
+	go server.Serve()
+	defer server.Close()
+
+	client, err := client.New("127.0.0.1:7777")
+
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	defer client.Close()
 
 	// checker
 	checkStartJob := func(cmd string, args []string) error {
@@ -34,7 +40,7 @@ func TestStartJobs(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := client.Stub.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -120,14 +126,22 @@ func TestStartJobs(t *testing.T) {
 }
 
 func TestGetJobStatus(t *testing.T) {
-	server, listener := newTestServer()
+	server, err := service.NewServer(7777)
 
-	go server.Serve(listener)
-	defer listener.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	clientConn := newTestClientConn()
-	defer clientConn.Close()
-	client := proto.NewWorkerServiceClient(clientConn)
+	go server.Serve()
+	defer server.Close()
+
+	client, err := client.New("127.0.0.1:7777")
+
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	defer client.Close()
 
 	// checker
 	checkQueryJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
@@ -136,7 +150,7 @@ func TestGetJobStatus(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := client.Stub.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -146,7 +160,7 @@ func TestGetJobStatus(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		status, err := client.QueryJob(context.Background(), job)
+		status, err := client.Stub.QueryJob(context.Background(), job)
 
 		if err != nil {
 			return err
@@ -273,14 +287,22 @@ func TestGetJobStatus(t *testing.T) {
 }
 
 func TestStopJob(t *testing.T) {
-	server, listener := newTestServer()
+	server, err := service.NewServer(7777)
 
-	go server.Serve(listener)
-	defer listener.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	clientConn := newTestClientConn()
-	defer clientConn.Close()
-	client := proto.NewWorkerServiceClient(clientConn)
+	go server.Serve()
+	defer server.Close()
+
+	client, err := client.New("127.0.0.1:7777")
+
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	defer client.Close()
 
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
@@ -289,7 +311,7 @@ func TestStopJob(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := client.Stub.StartJob(context.Background(), command)
 
 		if err != nil {
 			return err
@@ -299,7 +321,7 @@ func TestStopJob(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		status, err := client.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
+		status, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
 
 		if err != nil {
 			return err
@@ -466,41 +488,6 @@ func TestStopJob(t *testing.T) {
 			}
 		})
 	}
-}
-
-func newTestServer() (*grpc.Server, net.Listener) {
-	logrus.Infoln("Listen at port 7777")
-	listener, err := net.Listen("tcp", "0.0.0.0:7777")
-
-	if err != nil {
-		logrus.Fatalf("failed to listen: %v", err)
-	}
-
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-
-	service, err := service.NewWorkerService()
-
-	if err != nil {
-		logrus.Fatalf("failed to create service: %v", err)
-	}
-
-	proto.RegisterWorkerServiceServer(grpcServer, service)
-
-	return grpcServer, listener
-}
-
-func newTestClientConn() *grpc.ClientConn {
-	opts := make([]grpc.DialOption, 0, 1)
-	opts = append(opts, grpc.WithInsecure())
-
-	connection, err := grpc.Dial("127.0.0.1:7777", opts...)
-
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-
-	return connection
 }
 
 func randomString(length int) string {

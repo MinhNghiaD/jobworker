@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -16,7 +18,7 @@ type WorkerService struct {
 	jobsManager job.JobsManager
 }
 
-func NewWorkerService() (*WorkerService, error) {
+func newWorkerService() (*WorkerService, error) {
 	jobsManager, err := job.NewManager()
 
 	if err != nil {
@@ -90,7 +92,50 @@ func (service *WorkerService) Cleanup() error {
 	return service.jobsManager.Cleanup()
 }
 
-func ServerConfig() []grpc.ServerOption {
+type WorkerServer struct {
+	grpcServer *grpc.Server
+	listener   net.Listener
+	service    *WorkerService
+}
+
+func NewServer(port int) (*WorkerServer, error) {
+	logrus.Infof("Listen at port %d", port)
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+
+	if err != nil {
+		return nil, err
+	}
+
+	opts := serverConfig()
+	grpcServer := grpc.NewServer(opts...)
+
+	service, err := newWorkerService()
+
+	if err != nil {
+		return nil, err
+	}
+
+	proto.RegisterWorkerServiceServer(grpcServer, service)
+
+	return &WorkerServer{
+		grpcServer: grpcServer,
+		listener:   listener,
+		service:    service,
+	}, nil
+}
+
+func (server *WorkerServer) Serve() error {
+	return server.grpcServer.Serve(server.listener)
+}
+
+func (server *WorkerServer) Close() error {
+	err := server.listener.Close()
+	server.service.Cleanup()
+
+	return err
+}
+
+func serverConfig() []grpc.ServerOption {
 	opts := make([]grpc.ServerOption, 0)
 
 	keepalivePolicy := keepalive.ServerParameters{

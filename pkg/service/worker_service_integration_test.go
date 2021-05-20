@@ -7,15 +7,21 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
+	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/sirupsen/logrus"
 )
 
 func TestSimulation(t *testing.T) {
-	server, listener := newTestServer()
+	server, err := service.NewServer(7777)
 
-	go server.Serve(listener)
-	defer listener.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go server.Serve()
+	defer server.Close()
 
 	testcases := []struct {
 		name string
@@ -77,15 +83,19 @@ func TestSimulation(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Simulate client random access
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 
-			clientConn := newTestClientConn()
-			defer clientConn.Close()
-			client := proto.NewWorkerServiceClient(clientConn)
+			client, err := client.New("127.0.0.1:7777")
+
+			if err != nil {
+				t.Fatalf("Fail to init client %s", err)
+			}
+
+			defer client.Close()
 
 			for j := 0; j < 50; j++ {
 				switch rand.Int() % 3 {
@@ -98,7 +108,7 @@ func TestSimulation(t *testing.T) {
 						Args: testcase.args,
 					}
 
-					job, err := client.StartJob(context.Background(), cmd)
+					job, err := client.Stub.StartJob(context.Background(), cmd)
 
 					if err != nil {
 						logrus.Warningf("Fail to start job, %s", err)
@@ -114,7 +124,7 @@ func TestSimulation(t *testing.T) {
 						Force: false,
 					}
 
-					status, err := client.StopJob(context.Background(), request)
+					status, err := client.Stub.StopJob(context.Background(), request)
 					if err != nil {
 						logrus.Warningf("Fail to stop job, %s", err)
 					} else {
@@ -126,7 +136,7 @@ func TestSimulation(t *testing.T) {
 						Id: jobIDs.RandomID(),
 					}
 
-					status, err := client.QueryJob(context.Background(), job)
+					status, err := client.Stub.QueryJob(context.Background(), job)
 					if err != nil {
 						logrus.Warningf("Fail to query job, %s", err)
 					} else {
