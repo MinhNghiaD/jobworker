@@ -18,7 +18,11 @@ func TestStartJobs(t *testing.T) {
 
 	// checker
 	checkStartCmd := func(cmd string, args []string) error {
-		_, err := manager.CreateJob(cmd, args)
+		j, err := manager.CreateJob(cmd, args)
+
+		if j != nil {
+			defer j.Stop(false)
+		}
 
 		return err
 	}
@@ -44,19 +48,19 @@ func TestStartJobs(t *testing.T) {
 			true,
 		},
 		{
-			"ls",
+			"Short term",
 			"ls",
 			[]string{"-la"},
 			false,
 		},
 		{
-			"mkdir",
+			"File access",
 			"mkdir",
 			[]string{"/tmp/testdir"},
 			false,
 		},
 		{
-			"whoami",
+			"Check user",
 			"whoami",
 			[]string{},
 			false,
@@ -114,6 +118,8 @@ func TestGetJobStatus(t *testing.T) {
 			return err
 		}
 
+		defer j.Stop(false)
+
 		time.Sleep(time.Second)
 
 		status := j.Status()
@@ -153,7 +159,7 @@ func TestGetJobStatus(t *testing.T) {
 			true,
 		},
 		{
-			"ls",
+			"Short term command",
 			"ls",
 			[]string{"-la"},
 			&job.ProcStat{
@@ -163,7 +169,7 @@ func TestGetJobStatus(t *testing.T) {
 			false,
 		},
 		{
-			"mkdir",
+			"File access",
 			"mkdir",
 			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
 			&job.ProcStat{
@@ -173,7 +179,7 @@ func TestGetJobStatus(t *testing.T) {
 			false,
 		},
 		{
-			"whoami",
+			"User identity",
 			"whoami",
 			[]string{},
 			&job.ProcStat{
@@ -297,7 +303,7 @@ func TestStopJob(t *testing.T) {
 			true,
 		},
 		{
-			"ls",
+			"Sort term command",
 			"ls",
 			[]string{"-la"},
 			false,
@@ -308,7 +314,7 @@ func TestStopJob(t *testing.T) {
 			true,
 		},
 		{
-			"mkdir",
+			"File access",
 			"mkdir",
 			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
 			false,
@@ -319,7 +325,7 @@ func TestStopJob(t *testing.T) {
 			true,
 		},
 		{
-			"whoami",
+			"User identity",
 			"whoami",
 			[]string{},
 			false,

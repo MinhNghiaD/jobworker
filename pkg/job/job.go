@@ -64,7 +64,7 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
 }
 
 // Start Running job in the background. The Start() function has a timeout period of 1 second
-func (j *JobImpl) Start() (err error) {
+func (j *JobImpl) Start() error {
 	j.cmd.Stdin = nil
 	j.cmd.Stdout = os.Stdout
 	j.cmd.Stderr = os.Stdout
@@ -73,19 +73,7 @@ func (j *JobImpl) Start() (err error) {
 
 	logrus.Infof("Starting j %s", j.ID)
 
-	errChan := make(chan error, 1)
-	defer close(errChan)
-
-	go func() {
-		errChan <- j.cmd.Start()
-	}()
-
-	select {
-	case err = <-errChan:
-	case <-time.After(time.Second):
-		logrus.Infof("Start job %s deadline excedeed", j)
-		err = fmt.Errorf("Fail to start job, timeout")
-	}
+	err := j.cmd.Start()
 
 	if err != nil {
 		j.changeState(STOPPED)
