@@ -104,7 +104,7 @@ func (j *JobImpl) Start() (err error) {
 
 		logrus.Infof("Exiting job %s", j.ID)
 
-		if j.cmd.ProcessState != nil && (j.cmd.ProcessState.Exited() != false || j.cmd.ProcessState.ExitCode() < 0) {
+		if j.cmd.ProcessState != nil && (j.cmd.ProcessState.Exited() == false || j.cmd.ProcessState.ExitCode() < 0) {
 			j.changeState(STOPPED)
 		} else {
 			j.changeState(EXITED)
@@ -121,12 +121,35 @@ func (j *JobImpl) Stop(force bool) error {
 
 // Query the current statis of the job
 func (j *JobImpl) Status() ProcStat {
-	return ProcStat{}
+	pid := -1
+	exitcode := -1
+
+	if j.cmd.Process != nil {
+		pid = j.cmd.Process.Pid
+	}
+
+	if j.cmd.ProcessState != nil {
+		exitcode = j.cmd.ProcessState.ExitCode()
+	}
+
+	return ProcStat{
+		PID:      pid,
+		Stat:     j.getState(),
+		ExitCode: exitcode,
+	}
 }
 
 // Return the command wrapped by the job
 func (j *JobImpl) String() string {
 	return j.cmd.String()
+}
+
+// Read current job state with mutex read protection
+func (j *JobImpl) getState() State {
+	j.stateMutex.RLock()
+	defer j.stateMutex.RUnlock()
+
+	return j.state
 }
 
 // Change the current state of the job
