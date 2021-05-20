@@ -2,9 +2,8 @@ package job
 
 import (
 	"fmt"
+	"os/exec"
 	"sync"
-
-	exec "golang.org/x/sys/execabs"
 
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 	"github.com/google/uuid"

@@ -3,11 +3,10 @@ package job
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"sync"
 	"syscall"
 	"time"
-
-	exec "golang.org/x/sys/execabs"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
