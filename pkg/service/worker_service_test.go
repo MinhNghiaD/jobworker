@@ -2,7 +2,9 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"testing"
 	"time"
@@ -19,12 +21,12 @@ func TestStartJobs(t *testing.T) {
 	go server.Serve(listener)
 	defer listener.Close()
 
+	clientConn := newTestClientConn()
+	defer clientConn.Close()
+	client := proto.NewWorkerServiceClient(clientConn)
+
 	// checker
 	checkStartJob := func(cmd string, args []string) error {
-		clientConn := newTestClientConn()
-		defer clientConn.Close()
-		client := proto.NewWorkerServiceClient(clientConn)
-
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
@@ -118,6 +120,164 @@ func TestStartJobs(t *testing.T) {
 	}
 }
 
+func TestGetJobStatus(t *testing.T) {
+	server, listener := newTestServer()
+
+	go server.Serve(listener)
+	defer listener.Close()
+
+	clientConn := newTestClientConn()
+	defer clientConn.Close()
+	client := proto.NewWorkerServiceClient(clientConn)
+
+	// checker
+	checkQueryJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+		command := &proto.Command{
+			Cmd:  cmd,
+			Args: args,
+		}
+
+		job, err := client.StartJob(ctx, command)
+
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Started job %s", job)
+
+		time.Sleep(time.Second)
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		status, err := client.QueryJob(ctx, job)
+
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Job status %s", status)
+
+		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
+			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
+		}
+
+		return err
+	}
+
+	testcases := []struct {
+		name       string
+		cmd        string
+		args       []string
+		expectStat *proto.ProcessStatus
+		expectErr  bool
+	}{
+		{
+			"Empty Command",
+			"",
+			[]string{},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"Non exist command",
+			"abc",
+			[]string{},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_STOPPED,
+				ExitCode: -1,
+			},
+			true,
+		},
+		{
+			"Short term command",
+			"ls",
+			[]string{"-la"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			false,
+		},
+		{
+			"File access",
+			"mkdir",
+			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			false,
+		},
+		{
+			"User identity",
+			"whoami",
+			[]string{},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 0,
+			},
+			false,
+		},
+		{
+			"long running",
+			"top",
+			[]string{"-b"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			false,
+		},
+		{
+			"High priviledge",
+			"apt",
+			[]string{"update"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 100,
+			},
+			false,
+		},
+		{
+			"sudo",
+			"sudo",
+			[]string{"apt", "update"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 1,
+			},
+			false,
+		},
+		{
+			"bad args",
+			"ls",
+			[]string{"-wrong"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_EXITED,
+				ExitCode: 1,
+			},
+			false,
+		},
+	}
+
+	for _, testCase := range testcases {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := checkQueryJob(testCase.cmd, testCase.args, testCase.expectStat)
+
+			if (err != nil) != (testCase.expectErr) {
+				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
+				return
+			}
+		})
+	}
+}
+
 func newTestServer() (*grpc.Server, net.Listener) {
 	logrus.Infoln("Listen at port 7777")
 	listener, err := net.Listen("tcp", "0.0.0.0:7777")
@@ -151,4 +311,17 @@ func newTestClientConn() *grpc.ClientConn {
 	}
 
 	return connection
+}
+
+func randomString(length int) string {
+	var charset string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+
+	return string(b)
 }
