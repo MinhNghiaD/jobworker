@@ -1,7 +1,6 @@
 package job
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -52,6 +51,7 @@ type JobImpl struct {
 	cmd        *exec.Cmd
 	state      State
 	stateMutex sync.RWMutex
+	waitExit   sync.WaitGroup
 }
 
 // Create a new job, associated with a unique ID and a Command
@@ -73,9 +73,6 @@ func (j *JobImpl) Start() (err error) {
 
 	logrus.Infof("Starting j %s", j.ID)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
-	defer cancel()
-
 	errChan := make(chan error, 1)
 	defer close(errChan)
 
@@ -85,9 +82,9 @@ func (j *JobImpl) Start() (err error) {
 
 	select {
 	case err = <-errChan:
-	case <-ctx.Done():
+	case <-time.After(time.Second):
 		logrus.Infof("Start job %s deadline excedeed", j)
-		err = ctx.Err()
+		err = fmt.Errorf("Fail to start job, timeout")
 	}
 
 	if err != nil {
@@ -97,18 +94,25 @@ func (j *JobImpl) Start() (err error) {
 
 	j.changeState(RUNNING)
 
+	j.waitExit.Add(1)
+
 	go func() {
+		defer j.waitExit.Done()
+
 		if err := j.cmd.Wait(); err != nil {
 			logrus.Infof("Job %s terminated, reason %s", j.ID, err)
 		}
 
 		logrus.Infof("Exiting job %s", j.ID)
 
-		if j.cmd.ProcessState != nil && (j.cmd.ProcessState.Exited() == false || j.cmd.ProcessState.ExitCode() < 0) {
-			j.changeState(STOPPED)
-		} else {
-			j.changeState(EXITED)
-		}
+		j.changeState(EXITED)
+		/*
+			if j.cmd.ProcessState != nil && (j.cmd.ProcessState.Exited() != false || j.cmd.ProcessState.ExitCode() < 0) {
+				j.changeState(STOPPED)
+			} else {
+
+			}
+		*/
 	}()
 
 	return nil
@@ -116,7 +120,37 @@ func (j *JobImpl) Start() (err error) {
 
 // Stop a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *JobImpl) Stop(force bool) error {
-	return fmt.Errorf("Not implemented")
+	if j.getState() != RUNNING || j.cmd.Process == nil {
+		return fmt.Errorf("Job not running")
+	}
+
+	if force {
+		if err := j.cmd.Process.Signal(os.Kill); err != nil {
+			return err
+		}
+	} else {
+		if err := j.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			return err
+		}
+	}
+
+	// Wait for the job to terminated
+	timeoutChan := make(chan error, 1)
+	go func() {
+		defer close(timeoutChan)
+		j.waitExit.Wait()
+	}()
+
+	select {
+	case <-timeoutChan:
+	case <-time.After(time.Second):
+		logrus.Infof("Stop job %s deadline excedeed", j)
+		return fmt.Errorf("Fail to stop job, timeout")
+	}
+
+	j.changeState(STOPPED)
+
+	return nil
 }
 
 // Query the current statis of the job
