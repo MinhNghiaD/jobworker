@@ -56,5 +56,8 @@ cscope.*
 #Binary
 /bin
 
+#Vendor
+/vendor
+
 #Protobuf generated file
 *.pb.go
