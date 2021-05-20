@@ -1,7 +1,6 @@
 package job
 
 import (
-	"fmt"
 	"sync"
 
 	exec "golang.org/x/sys/execabs"
@@ -11,31 +10,31 @@ import (
 
 // Jobs manager is the interface for the externals to create and access to job
 type JobsManager interface {
-	// Create a new job and Start running it in the background with the command and its arguments
-	CreateJob(command string, args []string) (Job, error)
+	// Create a new job and Start running it in the background with the command and its arguments, then return its ID
+	CreateJob(command string, args []string) (string, error)
 	// Return a created job corresponding to the ID, if the job is not existed, return nil
-	GetJob(ID string) (Job, error)
+	GetJob(ID string) (Job, bool)
 	// Perform clean up
 	Cleanup() error
 }
 
 // the implementation of the Jobs manager
 type JobsManagerImpl struct {
-	jobStore map[uuid.UUID]Job
+	jobStore map[string]Job
 	mutex    sync.RWMutex
 }
 
 // Create a new Job Manager with its dedicated space
 func NewManager() (JobsManager, error) {
 	return &JobsManagerImpl{
-		jobStore: make(map[uuid.UUID]Job),
+		jobStore: make(map[string]Job),
 	}, nil
 }
 
 // Start a new job in the background with the command and its arguments
-func (manager *JobsManagerImpl) CreateJob(command string, args []string) (Job, error) {
+func (manager *JobsManagerImpl) CreateJob(command string, args []string) (string, error) {
 	if _, err := exec.LookPath(command); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	cmd := exec.Command(command, args...)
@@ -44,26 +43,38 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string) (Job, e
 	j, err := newJob(ID, cmd)
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// add job to the store
 	manager.mutex.Lock()
-	manager.jobStore[ID] = j
+	manager.jobStore[ID.String()] = j
 	manager.mutex.Unlock()
 
 	// Start job
 	err = j.Start()
 
-	return j, err
+	return j.ID(), err
 }
 
 // Search for the job with the corresponding ID
-func (manager *JobsManagerImpl) GetJob(ID string) (Job, error) {
-	return nil, fmt.Errorf("Not implemented")
+func (manager *JobsManagerImpl) GetJob(ID string) (Job, bool) {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+
+	j, ok := manager.jobStore[ID]
+
+	return j, ok
 }
 
 // Cleanup the resources used by the Jobs manager
 func (manager *JobsManagerImpl) Cleanup() error {
-	return fmt.Errorf("Not implemented")
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+
+	for _, j := range manager.jobStore {
+		j.Stop(true)
+	}
+
+	return nil
 }

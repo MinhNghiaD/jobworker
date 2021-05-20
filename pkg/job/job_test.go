@@ -16,15 +16,25 @@ func TestStartJobs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	defer func() {
+		if err := manager.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
 	// checker
 	checkStartCmd := func(cmd string, args []string) error {
-		j, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args)
 
-		if j != nil {
-			defer j.Stop(false)
+		if err != nil {
+			return err
 		}
 
-		return err
+		if j, ok := manager.GetJob(jobID); ok {
+			j.Stop(false)
+		}
+
+		return nil
 	}
 
 	// TODO: add more test cases and reinforce the behaviour of the command execution.
@@ -110,12 +120,26 @@ func TestGetJobStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	defer func() {
+		if err := manager.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
 	// checker
 	checkStatusJob := func(cmd string, args []string, expectedStatus *job.ProcStat) error {
-		j, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args)
 
 		if err != nil {
 			return err
+		}
+
+		time.Sleep(time.Second)
+
+		j, ok := manager.GetJob(jobID)
+
+		if !ok {
+			return fmt.Errorf("Job not found")
 		}
 
 		defer j.Stop(false)
@@ -249,15 +273,27 @@ func TestStopJob(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	defer func() {
+		if err := manager.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *job.ProcStat) error {
-		j, err := manager.CreateJob(cmd, args)
+		jobID, err := manager.CreateJob(cmd, args)
 
 		if err != nil {
 			return err
 		}
 
 		time.Sleep(time.Second)
+
+		j, ok := manager.GetJob(jobID)
+
+		if !ok {
+			return fmt.Errorf("Job not found")
+		}
 
 		if err = j.Stop(force); err != nil {
 			return err

@@ -37,6 +37,8 @@ type ProcStat struct {
 
 // Job is managed by the worker for the execution of linux process
 type Job interface {
+	// ID of job
+	ID() string
 	// Start the job in the background
 	Start() error
 	// Stop the job
@@ -47,7 +49,7 @@ type Job interface {
 
 // The implementation of Job interface
 type JobImpl struct {
-	ID         uuid.UUID
+	id         uuid.UUID
 	cmd        *exec.Cmd
 	state      State
 	stateMutex sync.RWMutex
@@ -57,10 +59,14 @@ type JobImpl struct {
 // Create a new job, associated with a unique ID and a Command
 func newJob(ID uuid.UUID, cmd *exec.Cmd) (Job, error) {
 	return &JobImpl{
-		ID:    ID,
+		id:    ID,
 		cmd:   cmd,
 		state: QUEUING,
 	}, nil
+}
+
+func (j *JobImpl) ID() string {
+	return j.id.String()
 }
 
 // Start Running job in the background. The Start() function has a timeout period of 1 second
@@ -71,7 +77,7 @@ func (j *JobImpl) Start() error {
 
 	j.cmd.SysProcAttr = configNameSpace()
 
-	logrus.Infof("Starting j %s", j.ID)
+	logrus.Infof("Starting j %s", j.id)
 
 	err := j.cmd.Start()
 
@@ -88,10 +94,10 @@ func (j *JobImpl) Start() error {
 		defer j.waitExit.Done()
 
 		if err := j.cmd.Wait(); err != nil {
-			logrus.Infof("Job %s terminated, reason %s", j.ID, err)
+			logrus.Infof("Job %s terminated, reason %s", j.id, err)
 		}
 
-		logrus.Infof("Exiting job %s", j.ID)
+		logrus.Infof("Exiting job %s", j.id)
 
 		j.changeState(EXITED)
 		/*
