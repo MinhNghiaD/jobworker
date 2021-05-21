@@ -15,7 +15,6 @@ import (
 
 func TestSimulation(t *testing.T) {
 	server, err := service.NewServer(7777)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +89,6 @@ func TestSimulation(t *testing.T) {
 			defer wg.Done()
 
 			client, err := client.New("127.0.0.1:7777")
-
 			if err != nil {
 				t.Errorf("Fail to init client %s", err)
 				return
@@ -110,7 +108,6 @@ func TestSimulation(t *testing.T) {
 					}
 
 					job, err := client.Stub.StartJob(context.Background(), cmd)
-
 					if err != nil {
 						logrus.Warningf("Fail to start job, %s", err)
 					} else {

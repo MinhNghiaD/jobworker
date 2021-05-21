@@ -17,11 +17,11 @@ func TestConcurrency(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	defer t.Cleanup(func() {
 		if err := manager.Cleanup(); err != nil {
 			t.Fatal(err)
 		}
-	}()
+	})
 
 	testcases := []struct {
 		name string
@@ -100,7 +100,6 @@ func TestConcurrency(t *testing.T) {
 				time.Sleep(50 * time.Millisecond)
 
 				j, ok := manager.GetJob(jobID)
-
 				if !ok {
 					t.Error("Job not found")
 					continue

@@ -17,21 +17,21 @@ import (
 
 func TestStartJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go server.Serve()
-	defer server.Close()
 
 	client, err := client.New("127.0.0.1:7777")
-
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
-	defer client.Close()
+	defer t.Cleanup(func() {
+		server.Close()
+		client.Close()
+	})
 
 	// checker
 	checkStartJob := func(cmd string, args []string) error {
@@ -41,7 +41,6 @@ func TestStartJobs(t *testing.T) {
 		}
 
 		job, err := client.Stub.StartJob(context.Background(), command)
-
 		if err != nil {
 			return err
 		}
@@ -127,21 +126,21 @@ func TestStartJobs(t *testing.T) {
 
 func TestGetJobStatus(t *testing.T) {
 	server, err := service.NewServer(7777)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go server.Serve()
-	defer server.Close()
 
 	client, err := client.New("127.0.0.1:7777")
-
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
-	defer client.Close()
+	defer t.Cleanup(func() {
+		server.Close()
+		client.Close()
+	})
 
 	// checker
 	checkQueryJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
@@ -151,7 +150,6 @@ func TestGetJobStatus(t *testing.T) {
 		}
 
 		job, err := client.Stub.StartJob(context.Background(), command)
-
 		if err != nil {
 			return err
 		}
@@ -161,7 +159,6 @@ func TestGetJobStatus(t *testing.T) {
 		time.Sleep(time.Second)
 
 		status, err := client.Stub.QueryJob(context.Background(), job)
-
 		if err != nil {
 			return err
 		}
@@ -288,21 +285,21 @@ func TestGetJobStatus(t *testing.T) {
 
 func TestStopJob(t *testing.T) {
 	server, err := service.NewServer(7777)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go server.Serve()
-	defer server.Close()
 
 	client, err := client.New("127.0.0.1:7777")
-
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
-	defer client.Close()
+	defer t.Cleanup(func() {
+		server.Close()
+		client.Close()
+	})
 
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
@@ -312,7 +309,6 @@ func TestStopJob(t *testing.T) {
 		}
 
 		job, err := client.Stub.StartJob(context.Background(), command)
-
 		if err != nil {
 			return err
 		}
@@ -322,7 +318,6 @@ func TestStopJob(t *testing.T) {
 		time.Sleep(time.Second)
 
 		status, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
-
 		if err != nil {
 			return err
 		}
@@ -492,10 +487,9 @@ func TestStopJob(t *testing.T) {
 
 func randomString(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	b := make([]byte, length)
+
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}

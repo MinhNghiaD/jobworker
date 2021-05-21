@@ -3,39 +3,30 @@ package job_test
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
-	"github.com/sirupsen/logrus"
 )
 
 func TestStartJobs(t *testing.T) {
-	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	defer t.Cleanup(func() {
 		if err := manager.Cleanup(); err != nil {
 			t.Fatal(err)
 		}
-	}()
+	})
 
 	// checker
 	checkStartCmd := func(cmd string, args []string) error {
-		jobID, err := manager.CreateJob(cmd, args, "test user")
-
+		_, err := manager.CreateJob(cmd, args, "test user")
 		if err != nil {
 			return err
-		}
-
-		if j, ok := manager.GetJob(jobID); ok {
-			defer j.Stop(false)
 		}
 
 		return nil
@@ -107,6 +98,7 @@ func TestStartJobs(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			err := checkStartCmd(testCase.cmd, testCase.args)
 
 			if (err != nil) != (testCase.expectErr) {
@@ -118,23 +110,20 @@ func TestStartJobs(t *testing.T) {
 }
 
 func TestGetJobStatus(t *testing.T) {
-	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	defer t.Cleanup(func() {
 		if err := manager.Cleanup(); err != nil {
 			t.Fatal(err)
 		}
-	}()
+	})
 
 	// checker
 	checkStatusJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
 		jobID, err := manager.CreateJob(cmd, args, "test user")
-
 		if err != nil {
 			return err
 		}
@@ -142,14 +131,9 @@ func TestGetJobStatus(t *testing.T) {
 		time.Sleep(time.Second)
 
 		j, ok := manager.GetJob(jobID)
-
 		if !ok {
 			return fmt.Errorf("Job not found")
 		}
-
-		defer j.Stop(false)
-
-		time.Sleep(time.Second)
 
 		status := j.Status()
 
@@ -157,7 +141,7 @@ func TestGetJobStatus(t *testing.T) {
 			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
 		}
 
-		return err
+		return nil
 	}
 
 	testcases := []struct {
@@ -261,6 +245,7 @@ func TestGetJobStatus(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			err := checkStatusJob(testCase.cmd, testCase.args, testCase.expectStat)
 
 			if (err != nil) != (testCase.expectErr) {
@@ -272,23 +257,20 @@ func TestGetJobStatus(t *testing.T) {
 }
 
 func TestStopJob(t *testing.T) {
-	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	defer t.Cleanup(func() {
 		if err := manager.Cleanup(); err != nil {
 			t.Fatal(err)
 		}
-	}()
+	})
 
 	// checker
 	checkStopJob := func(cmd string, args []string, force bool, expectedStatus *proto.ProcessStatus) error {
 		jobID, err := manager.CreateJob(cmd, args, "test user")
-
 		if err != nil {
 			return err
 		}
@@ -296,7 +278,6 @@ func TestStopJob(t *testing.T) {
 		time.Sleep(time.Second)
 
 		j, ok := manager.GetJob(jobID)
-
 		if !ok {
 			return fmt.Errorf("Job not found")
 		}
@@ -311,7 +292,7 @@ func TestStopJob(t *testing.T) {
 			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
 		}
 
-		return err
+		return nil
 	}
 
 	testcases := []struct {
@@ -458,6 +439,7 @@ func TestStopJob(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			err := checkStopJob(testCase.cmd, testCase.args, testCase.forceStop, testCase.expectStat)
 
 			if (err != nil) != (testCase.expectErr) {
@@ -470,10 +452,9 @@ func TestStopJob(t *testing.T) {
 
 func randomString(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	b := make([]byte, length)
+
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
