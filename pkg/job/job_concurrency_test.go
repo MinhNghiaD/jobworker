@@ -59,7 +59,7 @@ func TestConcurrency(t *testing.T) {
 			[]string{"-b"},
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 		},

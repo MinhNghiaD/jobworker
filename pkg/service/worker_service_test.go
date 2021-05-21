@@ -94,7 +94,7 @@ func TestStartJobs(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			false,
@@ -243,7 +243,7 @@ func TestGetJobStatus(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			&proto.ProcessStatus{
@@ -422,7 +422,7 @@ func TestStopJob(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			false,

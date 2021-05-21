@@ -7,6 +7,7 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 // JobsManager is the interface for the externals to create and access to job
@@ -75,7 +76,7 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 	return ID.String(), err
 }
 
-// GetJob searchs for the job with the corresponding ID
+// GetJob searches for the job with the corresponding ID
 func (manager *JobsManagerImpl) GetJob(ID string) (Job, bool) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
@@ -90,8 +91,12 @@ func (manager *JobsManagerImpl) Cleanup() error {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
+	logrus.Infof("Cleanup jobs")
+
 	for _, j := range manager.jobStore {
-		j.Stop(true)
+		if err := j.Stop(true); err != nil && err != ErrNotRunning {
+			logrus.Infof("Fail to stop job, %s", err)
+		}
 	}
 
 	return manager.logsManager.Cleanup()

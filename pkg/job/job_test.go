@@ -35,14 +35,14 @@ func TestStartJobs(t *testing.T) {
 		}
 
 		if j, ok := manager.GetJob(jobID); ok {
-			j.Stop(false)
+			defer j.Stop(false)
 		}
 
 		return nil
 	}
 
 	// TODO: add more test cases and reinforce the behaviour of the command execution.
-	// NOTE: For now, we accept that user can start job with high priviledge. The job will be started but the execution will fail.
+	// NOTE: For now, we accept that user can start job with high privilege. The job will be started but the execution will fail.
 	testcases := []struct {
 		name      string
 		cmd       string
@@ -86,7 +86,7 @@ func TestStartJobs(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			false,
@@ -228,7 +228,7 @@ func TestGetJobStatus(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			&proto.ProcessStatus{
@@ -400,7 +400,7 @@ func TestStopJob(t *testing.T) {
 			false,
 		},
 		{
-			"High priviledge",
+			"High privilege",
 			"apt",
 			[]string{"update"},
 			false,

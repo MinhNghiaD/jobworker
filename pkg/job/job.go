@@ -1,7 +1,7 @@
 package job
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"os/exec"
 	"sync"
@@ -13,6 +13,11 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
+)
+
+var (
+	ErrNotRunning = errors.New("Job not running")
+	ErrTimeout    = errors.New("Time out")
 )
 
 // Job is managed by the worker for the execution of linux process
@@ -107,7 +112,7 @@ func (j *Impl) Start() error {
 // Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *Impl) Stop(force bool) error {
 	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
-		return fmt.Errorf("Job not running")
+		return ErrNotRunning
 	}
 
 	// Use SIGKILL to force the process to stop immediately, otherwise we will use SIGTERM
@@ -126,10 +131,10 @@ func (j *Impl) Stop(force bool) error {
 	case _, ok := <-j.exitChan:
 		if !ok {
 			// exit channel is already closed, which means the process is already exited
-			return fmt.Errorf("Job is already stopped")
+			return ErrNotRunning
 		}
 	case <-time.After(time.Second):
-		return fmt.Errorf("Fail to stop job, timeout")
+		return ErrTimeout
 	}
 
 	j.changeState(proto.ProcessState_STOPPED)
