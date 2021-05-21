@@ -15,12 +15,8 @@ import (
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 )
 
-type State int
-
 // Job is managed by the worker for the execution of linux process
 type Job interface {
-	// ID of job
-	ID() string
 	// Start the job in the background
 	Start() error
 	// Stop the job
@@ -33,8 +29,8 @@ type Job interface {
 // For now, the job will be start immediately after created
 // Process waiting to be executed
 
-// The implementation of Job interface
-type JobImpl struct {
+// Impl is the implementation of the Job interface
+type Impl struct {
 	id         uuid.UUID
 	cmd        *exec.Cmd
 	logger     *log.Logger
@@ -44,9 +40,9 @@ type JobImpl struct {
 	exitChan   chan bool
 }
 
-// Create a new job, associated with a unique ID and a Command
+// newJob creates a new job, associated with a unique ID and a Command, and the owner who requests its
 func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job, error) {
-	return &JobImpl{
+	return &Impl{
 		id:       ID,
 		cmd:      cmd,
 		logger:   logger,
@@ -56,12 +52,8 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job,
 	}, nil
 }
 
-func (j *JobImpl) ID() string {
-	return j.id.String()
-}
-
-// Start Running job in the background. The Start() function has a timeout period of 1 second
-func (j *JobImpl) Start() error {
+// Start runs job in the background
+func (j *Impl) Start() error {
 	// IO Mapping
 	j.cmd.Stdin = nil
 	stdoutLog := j.logger.Entry.WithField("source", "stdout").Writer()
@@ -112,8 +104,8 @@ func (j *JobImpl) Start() error {
 	return nil
 }
 
-// Stop a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
-func (j *JobImpl) Stop(force bool) error {
+// Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
+func (j *Impl) Stop(force bool) error {
 	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
 		return fmt.Errorf("Job not running")
 	}
@@ -145,8 +137,8 @@ func (j *JobImpl) Stop(force bool) error {
 	return nil
 }
 
-// Query the current statis of the job
-func (j *JobImpl) Status() *proto.JobStatus {
+// Status queries the current statis of the job
+func (j *Impl) Status() *proto.JobStatus {
 	state := j.getState()
 	pid := -1
 	exitcode := -1
@@ -155,12 +147,13 @@ func (j *JobImpl) Status() *proto.JobStatus {
 		pid = j.cmd.Process.Pid
 	}
 
+	// if state > proto.ProcessState_RUNNING, the process is already terminated and ProcessState can be read safely
 	if state > proto.ProcessState_RUNNING && j.cmd.ProcessState != nil {
 		exitcode = j.cmd.ProcessState.ExitCode()
 	}
 
 	return &proto.JobStatus{
-		Job:     &proto.Job{Id: j.ID()},
+		Job:     &proto.Job{Id: j.id.String()},
 		Command: &proto.Command{Cmd: j.String()},
 		Owner:   j.owner,
 		Status: &proto.ProcessStatus{
@@ -171,28 +164,28 @@ func (j *JobImpl) Status() *proto.JobStatus {
 	}
 }
 
-// Return the command wrapped by the job
-func (j *JobImpl) String() string {
+// String returns the command wrapped by the job
+func (j *Impl) String() string {
 	return j.cmd.String()
 }
 
-// Read current job state with mutex read protection
-func (j *JobImpl) getState() proto.ProcessState {
+// getState reads current job state with mutex read protection
+func (j *Impl) getState() proto.ProcessState {
 	j.stateMutex.RLock()
 	defer j.stateMutex.RUnlock()
 
 	return j.state
 }
 
-// Change the current state of the job
-func (j *JobImpl) changeState(state proto.ProcessState) {
+// changeState sets the new state of the job
+func (j *Impl) changeState(state proto.ProcessState) {
 	j.stateMutex.Lock()
 	defer j.stateMutex.Unlock()
 
 	j.state = state
 }
 
-// Apply namespaces policy on the process
+// configNameSpace applies namespaces policy on the process
 func configNameSpace() *syscall.SysProcAttr {
 	// TODO Continue to reinforce namespaces
 	return &syscall.SysProcAttr{

@@ -3,14 +3,17 @@ package job_test
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
+	"github.com/sirupsen/logrus"
 )
 
 func TestStartJobs(t *testing.T) {
+	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
 
 	if err != nil {
@@ -115,6 +118,7 @@ func TestStartJobs(t *testing.T) {
 }
 
 func TestGetJobStatus(t *testing.T) {
+	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
 
 	if err != nil {
@@ -268,6 +272,7 @@ func TestGetJobStatus(t *testing.T) {
 }
 
 func TestStopJob(t *testing.T) {
+	logrus.SetOutput(os.Stderr)
 	manager, err := job.NewManager()
 
 	if err != nil {
@@ -464,7 +469,7 @@ func TestStopJob(t *testing.T) {
 }
 
 func randomString(length int) string {
-	var charset string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 

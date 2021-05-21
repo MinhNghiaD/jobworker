@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Jobs manager is the interface for the externals to create and access to job
+// JobsManager is the interface for the externals to create and access to job
 type JobsManager interface {
 	// Create a new job and Start running it in the background with the command and its arguments, then return its ID
 	CreateJob(command string, args []string, owner string) (string, error)
@@ -19,14 +19,14 @@ type JobsManager interface {
 	Cleanup() error
 }
 
-// the implementation of the Jobs manager
+// JobsManagerImpl is the implementation of the Jobs manager
 type JobsManagerImpl struct {
 	jobStore    map[string]Job
 	logsManager *log.LogsManager
 	mutex       sync.RWMutex
 }
 
-// Create a new Job Manager with its dedicated space
+// NewManager creates a new Job Manager with its dedicated space
 func NewManager() (JobsManager, error) {
 	logsManager, err := log.NewManager()
 
@@ -40,7 +40,7 @@ func NewManager() (JobsManager, error) {
 	}, nil
 }
 
-// Start a new job in the background with the command and its arguments
+// CreateJob starts a new job in the background with the command and its arguments, then associates the job with its owner
 func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner string) (string, error) {
 	if manager.logsManager == nil {
 		return "", fmt.Errorf("Log Manager is not iniatiated")
@@ -72,10 +72,10 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 	// Start job
 	err = j.Start()
 
-	return j.ID(), err
+	return ID.String(), err
 }
 
-// Search for the job with the corresponding ID
+// GetJob searchs for the job with the corresponding ID
 func (manager *JobsManagerImpl) GetJob(ID string) (Job, bool) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
@@ -85,7 +85,7 @@ func (manager *JobsManagerImpl) GetJob(ID string) (Job, bool) {
 	return j, ok
 }
 
-// Cleanup the resources used by the Jobs manager
+// Cleanup cleanups the resources and log files used by the Jobs manager
 func (manager *JobsManagerImpl) Cleanup() error {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()

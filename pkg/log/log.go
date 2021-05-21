@@ -8,13 +8,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// File Logger wrapper of logrus logging into a file
+// Logger wraps of logrus logging into a file
 type Logger struct {
 	file  *os.File
 	Entry *logrus.Entry
 }
 
-// Close the log file
+// Close closes loggers and its log file
 func (logger *Logger) Close() error {
 	if err := logger.file.Sync(); err != nil {
 		logrus.Errorf("Fail to sync file %s, error: %s", logger.file.Name(), err)
@@ -30,12 +30,12 @@ func (logger *Logger) Close() error {
 	return nil
 }
 
-// Logs Manager manages logs directory and the creation of loggers
+// LogsManager manages logs directory and the creation of loggers
 type LogsManager struct {
 	logsDir string
 }
 
-// Create a new logs manager with a temporary log directory
+// NewManager creates a new logs manager with a temporary log directory
 func NewManager() (*LogsManager, error) {
 	// TODO use config file to configure logs directory
 	logsDir, err := os.MkdirTemp("", "worker-logs-*")
@@ -50,7 +50,7 @@ func NewManager() (*LogsManager, error) {
 	}, nil
 }
 
-// Create a new logger with a log file named after the ID, in the logs directory
+// NewLogger creates a new logger with a log file named after the ID, in the logs directory
 func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	if len(ID) == 0 {
 		return nil, fmt.Errorf("ID cannot be empty")
@@ -82,7 +82,7 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	}, nil
 }
 
-// Cleanup the temporary logs directory
+// Cleanup removes the temporary logs directory
 func (manager *LogsManager) Cleanup() error {
 	if err := os.RemoveAll(manager.logsDir); err != nil {
 		logrus.Infof("Failed to remove %q: %v", manager.logsDir, err)
