@@ -78,8 +78,8 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 
 // GetJob searches for the job with the corresponding ID
 func (manager *JobsManagerImpl) GetJob(ID string) (Job, bool) {
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
 
 	j, ok := manager.jobStore[ID]
 
