@@ -24,9 +24,9 @@ proto: worker_service.pb.go
 .PHONY: build
 build:
 	@-$(MAKE) clean
+	@-$(MAKE) proto
 	@-$(MAKE) update-vendor
 	@echo "  >  Building binary..."
-	@-$(MAKE) proto
 	@go build -o $(BIN)/ ./...
 
 .PHONY: test
