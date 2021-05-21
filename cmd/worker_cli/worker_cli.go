@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
@@ -17,8 +16,9 @@ var (
 	// TODO add flags for certificate, private key and server CAs
 
 	// Start subcommand and its flags
-	start    = kingpin.Command("start", "Start a job on worker service.")
-	startCmd = start.Flag("cmd", "command to be executed").Default("").String()
+	start     = kingpin.Command("start", "Start a job on worker service.")
+	startCmd  = start.Flag("cmd", "command to be executed").Default("").String()
+	startArgs = start.Arg("args", "arguments of the command").Strings()
 
 	// Stop subcommand and its flags
 	stop        = kingpin.Command("stop", "Stop a job on worker service.")
@@ -45,7 +45,7 @@ func main() {
 
 	switch subCommand {
 	case "start":
-		startJob(cli, *startCmd)
+		startJob(cli, *startCmd, *startArgs)
 	case "stop":
 		stopJob(cli, *stoppingJob, *stopForce)
 	case "query":
@@ -54,16 +54,15 @@ func main() {
 }
 
 // startJob using the gRPC client to start a job with the correspodning command on the server
-func startJob(c *client.Client, cmd string) {
+func startJob(c *client.Client, cmd string, args []string) {
 	if c == nil {
 		logrus.Error("Client is not initiated")
 		return
 	}
 
-	fields := strings.Fields(cmd)
 	command := &proto.Command{
-		Cmd:  fields[0],
-		Args: fields[1:],
+		Cmd:  cmd,
+		Args: args,
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)

@@ -97,6 +97,11 @@ Commands:
     --job=""  job id
 ```
 
+For examples:
+```bash
+$ ./worker_cli --a=127.0.0.1:7777 --key=client_key.pem --key=client_key.pem start --ca=server_ca.pem --cmd=bash -- "-c" "trap -- SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"
+```
+
 ## More Information
 
 ### Design documentation
