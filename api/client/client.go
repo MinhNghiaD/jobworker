@@ -19,7 +19,7 @@ type Client struct {
 func New(address string) (*Client, error) {
 	dialOptions := clientDialOptions()
 
-	dialContext, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	dialContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	connection, err := grpc.DialContext(dialContext, address, dialOptions...)
