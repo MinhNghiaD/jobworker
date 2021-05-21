@@ -71,7 +71,7 @@ usage: worker_cli [<flags>] <command> [<args> ...]
 Flags:
   --help                 Show context-sensitive help (also try --help-long and --help-man).
   --a="127.0.0.1:7777"   server address
-  --cert=client_cert.pem clieny certificate
+  --cert=client_cert.pem client certificate
   --key=client_key.pem   client private key
   --ca                   server certificate authority
 
