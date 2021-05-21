@@ -13,11 +13,13 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+// WorkerService is the gRPC Service of Worker
 type WorkerService struct {
 	proto.UnimplementedWorkerServiceServer
 	jobsManager job.JobsManager
 }
 
+// newWorkerService initiates new service
 func newWorkerService() (*WorkerService, error) {
 	jobsManager, err := job.NewManager()
 
@@ -30,6 +32,7 @@ func newWorkerService() (*WorkerService, error) {
 	}, nil
 }
 
+// StartJob starts a job corresponding to user request
 func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
 	if service.jobsManager == nil {
 		return nil, fmt.Errorf("Job Managers is not ready")
@@ -47,6 +50,7 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 	}, nil
 }
 
+// StopJob terminates a job specified by user request
 func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	if service.jobsManager == nil {
 		return nil, fmt.Errorf("Job Managers is not ready")
@@ -65,6 +69,7 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 	return j.Status(), nil
 }
 
+// QueryJob returns the status of a job
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	if service.jobsManager == nil {
 		return nil, fmt.Errorf("Job Managers is not ready")
@@ -80,10 +85,12 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 	return j.Status(), nil
 }
 
+// StreamLog maintains a stream of job logs specified by user
 func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
 	return fmt.Errorf("Unimplemented")
 }
 
+// Cleanup cleanups the service
 func (service *WorkerService) Cleanup() error {
 	if service.jobsManager == nil {
 		return fmt.Errorf("Job Managers is not ready")
@@ -92,12 +99,14 @@ func (service *WorkerService) Cleanup() error {
 	return service.jobsManager.Cleanup()
 }
 
+// WorkerServer is gRPC Server of worker service
 type WorkerServer struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
 	service    *WorkerService
 }
 
+// NewServer creates a new server, listening at the specified port
 func NewServer(port int) (*WorkerServer, error) {
 	logrus.Infof("Listen at port %d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
@@ -124,10 +133,12 @@ func NewServer(port int) (*WorkerServer, error) {
 	}, nil
 }
 
+// Serve tarts the server
 func (server *WorkerServer) Serve() error {
 	return server.grpcServer.Serve(server.listener)
 }
 
+// Close closes the listener and perform cleanup
 func (server *WorkerServer) Close() error {
 	err := server.listener.Close()
 	server.service.Cleanup()
@@ -135,6 +146,7 @@ func (server *WorkerServer) Close() error {
 	return err
 }
 
+// serverConfig returns gRPC Server configurations
 func serverConfig() []grpc.ServerOption {
 	opts := make([]grpc.ServerOption, 0)
 
@@ -151,7 +163,7 @@ func serverConfig() []grpc.ServerOption {
 	// TODO add TLS and Interceptors
 	opts = append(opts, grpc.KeepaliveParams(keepalivePolicy))
 	opts = append(opts, grpc.KeepaliveEnforcementPolicy(enforcementPolicy))
-	opts = append(opts, grpc.MaxConcurrentStreams(1000))
+	//opts = append(opts, grpc.MaxConcurrentStreams(1000))
 
 	return opts
 }

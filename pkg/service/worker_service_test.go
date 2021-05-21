@@ -491,7 +491,7 @@ func TestStopJob(t *testing.T) {
 }
 
 func randomString(length int) string {
-	var charset string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 

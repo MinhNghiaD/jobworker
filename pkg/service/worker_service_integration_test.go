@@ -92,7 +92,8 @@ func TestSimulation(t *testing.T) {
 			client, err := client.New("127.0.0.1:7777")
 
 			if err != nil {
-				t.Fatalf("Fail to init client %s", err)
+				t.Errorf("Fail to init client %s", err)
+				return
 			}
 
 			defer client.Close()
