@@ -67,8 +67,6 @@ func (j *Impl) Start() error {
 	j.cmd.Stderr = stderrLog
 	j.cmd.Stdin = nil
 
-	j.cmd.SysProcAttr = configNameSpace()
-
 	logrus.Infof("Starting job %s", j.id)
 
 	err := j.cmd.Start()
@@ -187,31 +185,4 @@ func (j *Impl) changeState(state proto.ProcessState) {
 	defer j.stateMutex.Unlock()
 
 	j.state = state
-}
-
-// configNameSpace applies namespaces policy on the process
-func configNameSpace() *syscall.SysProcAttr {
-	// TODO Continue to reinforce namespaces
-	return &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWNS |
-			syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWIPC |
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNET |
-			syscall.CLONE_NEWUSER,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getuid(),
-				Size:        1,
-			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getgid(),
-				Size:        1,
-			},
-		},
-	}
 }

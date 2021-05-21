@@ -63,11 +63,6 @@ func TestSimulation(t *testing.T) {
 			[]string{"update"},
 		},
 		{
-			"sudo",
-			"sudo",
-			[]string{"apt", "update"},
-		},
-		{
 			"mask signals force stop",
 			"bash",
 			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},

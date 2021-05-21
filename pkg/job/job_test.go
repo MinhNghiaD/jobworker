@@ -83,12 +83,6 @@ func TestStartJobs(t *testing.T) {
 			false,
 		},
 		{
-			"sudo",
-			"sudo",
-			[]string{"apt", "update"},
-			false,
-		},
-		{
 			"bad args",
 			"ls",
 			[]string{"-wrong"},
@@ -218,16 +212,6 @@ func TestGetJobStatus(t *testing.T) {
 			&proto.ProcessStatus{
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
-			},
-			false,
-		},
-		{
-			"sudo",
-			"sudo",
-			[]string{"apt", "update"},
-			&proto.ProcessStatus{
-				State:    proto.ProcessState_EXITED,
-				ExitCode: 1,
 			},
 			false,
 		},
@@ -388,17 +372,6 @@ func TestStopJob(t *testing.T) {
 			&proto.ProcessStatus{
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
-			},
-			true,
-		},
-		{
-			"sudo",
-			"sudo",
-			[]string{"apt", "update"},
-			false,
-			&proto.ProcessStatus{
-				State:    proto.ProcessState_EXITED,
-				ExitCode: 1,
 			},
 			true,
 		},
