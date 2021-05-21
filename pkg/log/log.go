@@ -63,7 +63,6 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 
 	// Create write only log file.
 	file, err := os.OpenFile(fileName, (os.O_CREATE | os.O_APPEND | os.O_WRONLY), 0644)
-
 	if err != nil {
 		// Cannot open log file.
 		return nil, err

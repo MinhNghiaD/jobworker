@@ -22,7 +22,6 @@ type WorkerService struct {
 // newWorkerService initiates new service
 func newWorkerService() (*WorkerService, error) {
 	jobsManager, err := job.NewManager()
-
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +39,6 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 
 	// TODO Get Owner common name from certificate
 	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
-
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +55,6 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 	}
 
 	j, ok := service.jobsManager.GetJob(request.Job.Id)
-
 	if !ok {
 		return nil, fmt.Errorf("Job not found")
 	}
@@ -77,7 +74,6 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 
 	// TODO Get Owner common name from certificate
 	j, ok := service.jobsManager.GetJob(protoJob.Id)
-
 	if !ok {
 		return nil, fmt.Errorf("Job not found")
 	}
@@ -112,7 +108,6 @@ type WorkerServer struct {
 func NewServer(port int) (*WorkerServer, error) {
 	logrus.Infof("Listen at port %d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +116,6 @@ func NewServer(port int) (*WorkerServer, error) {
 	grpcServer := grpc.NewServer(opts...)
 
 	service, err := newWorkerService()
-
 	if err != nil {
 		return nil, err
 	}

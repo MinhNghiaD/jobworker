@@ -36,11 +36,9 @@ func main() {
 	subCommand := kingpin.Parse()
 
 	cli, err := client.New(*address)
-
 	if err != nil {
 		logrus.Fatalf("Fail to init client %s", err)
 	}
-
 	defer cli.Close()
 
 	switch subCommand {
@@ -69,7 +67,6 @@ func startJob(c *client.Client, cmd string, args []string) {
 	defer cancel()
 
 	j, err := c.Stub.StartJob(ctx, command)
-
 	if err != nil {
 		logrus.Errorf("Fail to start job, %s", err)
 		return
@@ -92,7 +89,6 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-
 	status, err := c.Stub.StopJob(ctx, request)
 
 	if err != nil {
@@ -112,7 +108,6 @@ func queryJob(c *client.Client, jobID string) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-
 	status, err := c.Stub.QueryJob(ctx, &proto.Job{Id: jobID})
 
 	if err != nil {

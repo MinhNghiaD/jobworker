@@ -14,7 +14,6 @@ import (
 
 func TestCreateLogFiles(t *testing.T) {
 	logsManager, err := NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,9 +88,11 @@ func TestCreateLogFiles(t *testing.T) {
 		})
 	}
 
-	if err := logsManager.Cleanup(); err != nil {
-		t.Errorf("fail to cleanup logs dir, %s", err)
-	}
+	t.Cleanup(func() {
+		if err := logsManager.Cleanup(); err != nil {
+			t.Errorf("fail to cleanup logs dir, %s", err)
+		}
+	})
 }
 
 func TestWriteLogs(t *testing.T) {
@@ -171,17 +172,18 @@ func TestWriteLogs(t *testing.T) {
 		})
 	}
 
-	if err := logsManager.Cleanup(); err != nil {
-		t.Errorf("fail to cleanup logs dir, %s", err)
-	}
+	t.Cleanup(func() {
+		if err := logsManager.Cleanup(); err != nil {
+			t.Errorf("fail to cleanup logs dir, %s", err)
+		}
+	})
 }
 
 func randomString(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	b := make([]byte, length)
+
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}

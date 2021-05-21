@@ -23,7 +23,6 @@ func New(address string) (*Client, error) {
 	defer cancel()
 
 	connection, err := grpc.DialContext(dialContext, address, dialOptions...)
-
 	if err != nil {
 		return nil, err
 	}

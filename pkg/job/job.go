@@ -60,19 +60,18 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job,
 // Start runs job in the background
 func (j *Impl) Start() error {
 	// IO Mapping
-	j.cmd.Stdin = nil
 	stdoutLog := j.logger.Entry.WithField("source", "stdout").Writer()
 	stderrLog := j.logger.Entry.WithField("source", "stderr").Writer()
 
 	j.cmd.Stdout = stdoutLog
 	j.cmd.Stderr = stderrLog
+	j.cmd.Stdin = nil
 
 	j.cmd.SysProcAttr = configNameSpace()
 
 	logrus.Infof("Starting job %s", j.id)
 
 	err := j.cmd.Start()
-
 	if err != nil {
 		j.changeState(proto.ProcessState_STOPPED)
 		return err

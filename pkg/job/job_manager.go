@@ -30,7 +30,6 @@ type JobsManagerImpl struct {
 // NewManager creates a new Job Manager with its dedicated space
 func NewManager() (JobsManager, error) {
 	logsManager, err := log.NewManager()
-
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +59,6 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 	}
 
 	j, err := newJob(ID, cmd, logger, owner)
-
 	if err != nil {
 		return "", err
 	}
