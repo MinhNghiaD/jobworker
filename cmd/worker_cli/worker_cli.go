@@ -44,11 +44,11 @@ func main() {
 	defer cli.Close()
 
 	switch subCommand {
-	case "start":
+	case start.FullCommand():
 		startJob(cli, *startCmd, *startArgs)
-	case "stop":
+	case stop.FullCommand():
 		stopJob(cli, *stoppingJob, *stopForce)
-	case "query":
+	case query.FullCommand():
 		queryJob(cli, *queriedJob)
 	}
 }
