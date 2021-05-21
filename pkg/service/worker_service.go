@@ -86,9 +86,11 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 }
 
 // StreamLog maintains a stream of job logs specified by user
+/*
 func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
 	return fmt.Errorf("Unimplemented")
 }
+*/
 
 // Cleanup cleanups the service
 func (service *WorkerService) Cleanup() error {

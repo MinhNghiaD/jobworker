@@ -1,23 +1,18 @@
 package main
 
 import (
-	"flag"
-
 	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	port *int
+	port = kingpin.Flag("port", "server port").Default("7777").Int()
+	// TODO add flags for certificate, private key and server CAs
 )
 
-func init() {
-	// TODO add options for certificate, private key and client CAs
-	port = flag.Int("port", 7777, "port number")
-}
-
 func main() {
-	flag.Parse()
+	kingpin.Parse()
 
 	server, err := service.NewServer(*port)
 	if err != nil {
