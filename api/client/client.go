@@ -49,6 +49,7 @@ func clientconfig() []grpc.DialOption {
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithKeepaliveParams(keepalivePolicy))
+	opts = append(opts, grpc.WithTimeout(5*time.Second))
 
 	return opts
 }

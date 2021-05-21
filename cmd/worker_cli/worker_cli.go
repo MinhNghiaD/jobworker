@@ -72,7 +72,7 @@ func startJob(c *client.Client, cmd string) {
 		return
 	}
 
-	fmt.Printf("Start job sucessfully, job ID: %s\n", j.Id)
+	fmt.Printf("Start job successfully, job ID: %s\n", j.Id)
 }
 
 func stopJob(c *client.Client, jobID string, force bool) {
@@ -121,7 +121,7 @@ func queryJob(c *client.Client, jobID string) {
 func printJobStatus(status *proto.JobStatus) {
 	fmt.Printf("Job %s: \n", status.GetJob().GetId())
 	fmt.Printf("\t - Command: %s \n", status.GetCommand().GetCmd())
-	fmt.Printf("\t - Creater: %s \n", status.GetOwner())
+	fmt.Printf("\t - Creator: %s \n", status.GetOwner())
 	fmt.Printf("\t - Status : \n")
 	fmt.Printf("\t\t - PID      : %d \n", status.GetStatus().Pid)
 	fmt.Printf("\t\t - State    : %v \n", status.GetStatus().State)

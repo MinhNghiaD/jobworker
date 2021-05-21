@@ -95,7 +95,7 @@ func (manager *JobsManagerImpl) Cleanup() error {
 
 	for _, j := range manager.jobStore {
 		if err := j.Stop(true); err != nil && err != ErrNotRunning {
-			logrus.Infof("Fail to stop job, %s", err)
+			logrus.Warningf("Fail to stop job, %s", err)
 		}
 	}
 
