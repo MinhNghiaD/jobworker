@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
@@ -16,9 +17,12 @@ type Client struct {
 
 // New creates a new Client to connect to server address specified in the parameters
 func New(address string) (*Client, error) {
-	opts := clientconfig()
+	dialOptions := clientDialOptions()
 
-	connection, err := grpc.Dial(address, opts...)
+	dialContext, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	connection, err := grpc.DialContext(dialContext, address, dialOptions...)
 
 	if err != nil {
 		return nil, err
@@ -37,8 +41,8 @@ func (c *Client) Close() error {
 	return c.connection.Close()
 }
 
-// clientconfig returns the gRPC configuration of the connection
-func clientconfig() []grpc.DialOption {
+// clientDialOptions returns the gRPC configuration of the connection
+func clientDialOptions() []grpc.DialOption {
 	opts := make([]grpc.DialOption, 0)
 
 	// TODO configure TLS
@@ -49,7 +53,6 @@ func clientconfig() []grpc.DialOption {
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithKeepaliveParams(keepalivePolicy))
-	opts = append(opts, grpc.WithTimeout(5*time.Second))
 
 	return opts
 }
