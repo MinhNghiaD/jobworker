@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"sync"
@@ -171,7 +170,7 @@ func (j *Impl) Status() *proto.JobStatus {
 }
 
 func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
-	return nil, fmt.Errorf("Unimplemented")
+	return j.logger.NewReader(ctx)
 }
 
 // String returns the command wrapped by the job

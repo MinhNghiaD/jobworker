@@ -17,7 +17,7 @@ func TestLogRead(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		readText := testRead(t, ctx, logger)
+		readText := testRead(ctx, t, logger)
 
 		if len(hook.Entries) != len(readText) {
 			t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
@@ -78,7 +78,7 @@ func TestReadWriteParallel(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				readText := testRead(t, ctx, logger)
+				readText := testRead(ctx, t, logger)
 
 				if len(hook.Entries) != len(readText) {
 					t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
@@ -134,7 +134,7 @@ func testWrite(t *testing.T, logger *Logger) {
 }
 
 // testRead simulates a log reader
-func testRead(t *testing.T, ctx context.Context, logger *Logger) []string {
+func testRead(ctx context.Context, t *testing.T, logger *Logger) []string {
 	logReader, err := logger.NewReader(ctx)
 	if err != nil {
 		t.Errorf("Fail to init log reader %s", err)

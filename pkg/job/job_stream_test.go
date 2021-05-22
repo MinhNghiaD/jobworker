@@ -9,6 +9,7 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
+	"github.com/sirupsen/logrus"
 )
 
 func TestStreamLog(t *testing.T) {
@@ -35,7 +36,6 @@ func TestStreamLog(t *testing.T) {
 			t.Error("Job not found")
 		}
 
-		// TODO spawn reader
 		logResults := make([]([]string), 10)
 
 		var wg sync.WaitGroup
@@ -59,7 +59,7 @@ func TestStreamLog(t *testing.T) {
 		// Let the jobs run for 5 seconds to collect enough logs
 		time.Sleep(5 * time.Second)
 
-		if err = j.Stop(forceStop); err != nil {
+		if err = j.Stop(forceStop); err != nil && err != job.ErrNotRunning {
 			t.Error(err)
 		}
 
@@ -81,6 +81,12 @@ func TestStreamLog(t *testing.T) {
 			false,
 		},
 		{
+			"Short term long result",
+			"ps",
+			[]string{"-aux"},
+			false,
+		},
+		{
 			"long running",
 			"top",
 			[]string{"-b"},
@@ -96,7 +102,6 @@ func TestStreamLog(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
 			checkStream(t, testCase.cmd, testCase.args, testCase.forceStop)
 		})
 	}
@@ -124,6 +129,8 @@ func checkResults(t *testing.T, results []([]string)) {
 
 	var wg sync.WaitGroup
 	template := results[0]
+
+	logrus.Infof("Log length %d", len(template))
 
 	for i := 1; i < len(results); i++ {
 		wg.Add(1)

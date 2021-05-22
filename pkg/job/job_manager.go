@@ -52,8 +52,8 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 
 	cmd := exec.Command(command, args...)
 	ID := uuid.New()
-	logger, err := manager.logsManager.NewLogger(ID.String())
 
+	logger, err := manager.logsManager.NewLogger(ID.String())
 	if err != nil {
 		return "", err
 	}
