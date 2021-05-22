@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +11,9 @@ import (
 
 // Logger wraps of logrus logging into a file
 type Logger struct {
-	file  *os.File
-	Entry *logrus.Entry
+	file      *os.File
+	Entry     *logrus.Entry
+	closeChan chan bool
 }
 
 // Close closes loggers and its log file
@@ -28,6 +30,10 @@ func (logger *Logger) Close() error {
 
 	logrus.Debugf("Close logger %s", logger.file.Name())
 	return nil
+}
+
+func (logger *Logger) NewReader(ctx context.Context) (LogReader, error) {
+	return nil, fmt.Errorf("Unimplemented")
 }
 
 // LogsManager manages logs directory and the creation of loggers
@@ -76,8 +82,9 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	}
 
 	return &Logger{
-		file:  file,
-		Entry: logger.WithField("source", "log"),
+		file:      file,
+		Entry:     logger.WithField("source", "log"),
+		closeChan: make(chan bool, 1),
 	}, nil
 }
 
