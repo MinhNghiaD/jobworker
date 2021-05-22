@@ -169,6 +169,7 @@ func (j *Impl) Status() *proto.JobStatus {
 	}
 }
 
+// GetLogReader returns a log.Reader object that allow us to read log from job's log file
 func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
 	return j.logger.NewReader(ctx)
 }

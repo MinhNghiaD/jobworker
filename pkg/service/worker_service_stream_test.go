@@ -1,41 +1,54 @@
-package job_test
+package service_test
 
 import (
 	"context"
-	"reflect"
+	"io"
 	"sync"
 	"testing"
 	"time"
 
+	pb "github.com/golang/protobuf/proto"
+
+	"github.com/MinhNghiaD/jobworker/api/client"
+	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
-	"github.com/MinhNghiaD/jobworker/pkg/log"
+	"github.com/MinhNghiaD/jobworker/pkg/service"
+	"github.com/sirupsen/logrus"
 )
 
-func TestStreamLog(t *testing.T) {
-	manager, err := job.NewManager()
+func TestStreaming(t *testing.T) {
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	go server.Serve()
+
+	client, err := client.New("127.0.0.1:7777")
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
 	defer t.Cleanup(func() {
-		if err := manager.Cleanup(); err != nil {
-			t.Fatal(err)
-		}
+		server.Close()
+		client.Close()
 	})
 
 	// checker
 	checkStream := func(t *testing.T, cmd string, args []string, forceStop bool) {
-		jobID, err := manager.CreateJob(cmd, args, "test user")
+		command := &proto.Command{
+			Cmd:  cmd,
+			Args: args,
+		}
+
+		j, err := client.Stub.StartJob(context.Background(), command)
 		if err != nil {
 			t.Error(err)
 		}
 
-		j, ok := manager.GetJob(jobID)
-		if !ok {
-			t.Error("Job not found")
-		}
+		logrus.Infof("Started job %s", j)
 
-		logResults := make([]([]string), 10)
+		logResults := make([]([]*proto.Log), 10)
 
 		var wg sync.WaitGroup
 		for i := 0; i < len(logResults); i++ {
@@ -46,21 +59,26 @@ func TestStreamLog(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				logReader, err := j.GetLogReader(ctx)
+				stream, err := client.Stub.StreamLog(ctx, j)
 				if err != nil {
-					t.Errorf("Fail to get log reader, err %s", err)
+					t.Error(err)
 				}
 
-				logResults[index] = readLog(t, logReader)
+				logResults[index] = readLog(t, stream)
 			}(i)
 		}
 
 		// Let the jobs run for 5 seconds to collect enough logs
 		time.Sleep(5 * time.Second)
 
-		if err = j.Stop(forceStop); err != nil && err != job.ErrNotRunning {
+		time.Sleep(time.Second)
+
+		status, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
+		if err != nil && err != job.ErrNotRunning {
 			t.Error(err)
 		}
+
+		logrus.Infof("Job status %s", status)
 
 		wg.Wait()
 		checkResults(t, logResults)
@@ -106,11 +124,14 @@ func TestStreamLog(t *testing.T) {
 }
 
 // readLog reads logs from the job
-func readLog(t *testing.T, logReader log.Reader) []string {
-	readText := make([]string, 0)
+func readLog(t *testing.T, logStream proto.WorkerService_StreamLogClient) []*proto.Log {
+	readText := make([]*proto.Log, 0)
 	for {
-		line, err := logReader.ReadLine()
+		line, err := logStream.Recv()
 		if err != nil {
+			if err != io.EOF {
+				t.Error(err)
+			}
 			break
 		}
 
@@ -120,7 +141,7 @@ func readLog(t *testing.T, logReader log.Reader) []string {
 	return readText
 }
 
-func checkResults(t *testing.T, results []([]string)) {
+func checkResults(t *testing.T, results []([]*proto.Log)) {
 	if results == nil {
 		t.Errorf("No result recorded")
 	}
@@ -139,7 +160,7 @@ func checkResults(t *testing.T, results []([]string)) {
 			}
 
 			for index, line := range results[i] {
-				if !reflect.DeepEqual(template[index], line) {
+				if !pb.Equal(template[index], line) {
 					t.Errorf("Results's contents mismatch")
 				}
 			}
