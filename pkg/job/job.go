@@ -1,7 +1,9 @@
 package job
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"sync"
@@ -28,6 +30,8 @@ type Job interface {
 	Stop(force bool) error
 	// Query the current status of the job
 	Status() *proto.JobStatus
+	// GetLogReader returns the log reader that has read-only access to log file
+	GetLogReader(ctx context.Context) (log.Reader, error)
 }
 
 // TODO Handle QUEUING state when job queue and scheduler is implemented
@@ -164,6 +168,10 @@ func (j *Impl) Status() *proto.JobStatus {
 			ExitCode: int32(exitcode),
 		},
 	}
+}
+
+func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
+	return nil, fmt.Errorf("Unimplemented")
 }
 
 // String returns the command wrapped by the job

@@ -31,7 +31,7 @@ type ReaderImpl struct {
 	ctx       context.Context
 }
 
-// newLogReader create a new LogReader, note that this interface is not thread-safe, it can only be used by only one stream
+// newLogReader creates a new LogReader, note that this interface is not thread-safe, it can only be used by only one stream
 func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader, error) {
 	id := uuid.New().String()
 	eventChan, err := hook.subscribe(id)
@@ -57,6 +57,7 @@ func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader
 
 // TODO: Using an indexing system that allow quick access to file using line index, instead of scan the entire a file for every read.
 // This will speed up the continuation of an interrupted stream.
+
 // ReadLine reads the next line in the log file. If the logging is finished or the reading is cancel by its context, ReadLine will return with an error
 func (reader *ReaderImpl) ReadLine() (string, error) {
 	bytes, err := reader.buffer.ReadBytes('\n')

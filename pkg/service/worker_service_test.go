@@ -346,7 +346,7 @@ func TestStopJob(t *testing.T) {
 			true,
 		},
 		{
-			"Sort term command",
+			"Short term command",
 			"ls",
 			[]string{"-la"},
 			false,
