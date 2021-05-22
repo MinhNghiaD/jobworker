@@ -14,7 +14,14 @@ import (
 // TestLogRead test a scenario where logs are completely written by writer first, the multiple readers read the same file
 func TestLogRead(t *testing.T) {
 	checkReader := func(t *testing.T, logger *Logger, hook *test.Hook) {
-		readText := testRead(t, logger)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		readText := testRead(t, ctx, logger)
+
+		if len(hook.Entries) != len(readText) {
+			t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
+		}
 
 		for i, line := range readText {
 			entry, err := hook.Entries[i].String()
@@ -68,7 +75,10 @@ func TestReadWriteParallel(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				readText := testRead(t, logger)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				readText := testRead(t, ctx, logger)
 
 				if len(hook.Entries) != len(readText) {
 					t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
@@ -90,7 +100,6 @@ func TestReadWriteParallel(t *testing.T) {
 		wg.Wait()
 	}
 
-	// Start test
 	logsManager, err := NewManager()
 	if err != nil {
 		t.Fatal(err)
@@ -125,10 +134,7 @@ func testWrite(t *testing.T, logger *Logger) {
 }
 
 // testRead simulates a log reader
-func testRead(t *testing.T, logger *Logger) []string {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func testRead(t *testing.T, ctx context.Context, logger *Logger) []string {
 	logReader, err := logger.NewReader(ctx)
 	if err != nil {
 		t.Errorf("Fail to init log reader %s", err)

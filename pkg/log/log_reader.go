@@ -75,7 +75,6 @@ func (reader *ReaderImpl) ReadLine() (string, error) {
 	}
 
 	return string(bytes), err
-
 }
 
 // Close closes the reader and freeup its resources
