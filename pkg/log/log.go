@@ -165,6 +165,7 @@ func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 		hook.subscribers[id] <- false
 	}
 
+	logrus.Infof("Add subscribe %s", id)
 	return hook.subscribers[id], nil
 }
 
@@ -177,6 +178,7 @@ func (hook *EventHook) unsubscribe(id string) error {
 		return fmt.Errorf("Subscriber is already added")
 	}
 
+	logrus.Infof("Unsubscribe %s", id)
 	close(hook.subscribers[id])
 	delete(hook.subscribers, id)
 

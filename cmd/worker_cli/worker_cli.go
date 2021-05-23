@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
@@ -32,6 +34,8 @@ var (
 	queriedJob = query.Flag("job", "job id").Default("").String()
 
 	// TODO: add Stream subcommand
+	stream    = kingpin.Command("stream", "Stream log of a job on worker service.")
+	streamJob = stream.Flag("job", "job id").Default("").String()
 )
 
 func main() {
@@ -50,6 +54,8 @@ func main() {
 		stopJob(cli, *stoppingJob, *stopForce)
 	case query.FullCommand():
 		queryJob(cli, *queriedJob)
+	case stream.FullCommand():
+		streamLog(cli, *streamJob)
 	}
 }
 
@@ -148,6 +154,49 @@ func queryJob(c *client.Client, jobID string) {
 	}
 
 	printJobStatus(st)
+}
+
+// queryJob queries the status of a job specified by jobID
+func streamLog(c *client.Client, jobID string) {
+	logrus.SetLevel(logrus.DebugLevel)
+	if c == nil {
+		logrus.Error("Client is not initiated")
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	receiver, err := c.GetLogReceiver(ctx, &proto.Job{Id: jobID})
+	var entry *proto.Log = nil
+
+	for err == nil {
+		entry, err = receiver.Read()
+		if err == nil {
+			var data map[string]string
+			if err := json.Unmarshal([]byte(entry.Entry), &data); err != nil {
+				logrus.Fatal(entry.Entry)
+			}
+			fmt.Println(data)
+		}
+	}
+
+	if err != nil {
+		if err == io.EOF {
+			return
+		}
+
+		s := status.Convert(err)
+		logrus.Errorf("Fail to query job, code %s, description %s", s.Code(), s.Message())
+
+		for _, d := range s.Details() {
+			switch info := d.(type) {
+			case *errdetails.QuotaFailure:
+				logrus.Errorf("Quota failure: %s", info)
+			default:
+				logrus.Errorf("Unexpected error: %s", info)
+			}
+		}
+	}
 }
 
 // printJobStatus displays the job status

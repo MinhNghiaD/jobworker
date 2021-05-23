@@ -8,7 +8,9 @@ import (
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 )
 
 // Client is gRPC Client that allows user to access to Worker APIs
@@ -119,9 +121,12 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 			// Reset stream
 			if receiver.reset() != nil {
 				logrus.Debugf("Try to reconnect")
-				time.Sleep(currentBackoff)
-
-				currentBackoff *= 2
+				select {
+				case <-time.After(currentBackoff):
+					currentBackoff *= 2
+				case <-receiver.ctx.Done():
+					return nil, status.Error(codes.DeadlineExceeded, "Timeout")
+				}
 			}
 		}
 	}

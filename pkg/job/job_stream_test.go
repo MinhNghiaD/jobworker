@@ -52,6 +52,7 @@ func TestStreamLog(t *testing.T) {
 				if err != nil {
 					t.Errorf("Fail to get log reader, err %s", err)
 				}
+				defer logReader.Close()
 
 				logResults[index] = readLog(t, logReader)
 			}(i)

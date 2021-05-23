@@ -131,6 +131,8 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 		return err
 	}
 
+	defer logReader.Close()
+
 	startPoint := request.StartPoint
 	var sequenceCounter int32 = 0
 
