@@ -58,7 +58,7 @@ func TestStreaming(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				stream, err := client.Stub.StreamLog(ctx, j)
+				stream, err := client.Stub.StreamLog(ctx, &proto.StreamRequest{Job: j, StartPoint: 0})
 				if err != nil {
 					t.Error(err)
 				}

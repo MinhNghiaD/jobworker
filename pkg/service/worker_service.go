@@ -82,12 +82,12 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 }
 
 // StreamLog maintains a stream of job logs specified by user
-func (service *WorkerService) StreamLog(protoJob *proto.Job, stream proto.WorkerService_StreamLogServer) error {
+func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream proto.WorkerService_StreamLogServer) error {
 	if service.jobsManager == nil {
 		return fmt.Errorf("Job Managers is not ready")
 	}
 
-	j, ok := service.jobsManager.GetJob(protoJob.Id)
+	j, ok := service.jobsManager.GetJob(request.Job.Id)
 	if !ok {
 		return fmt.Errorf("Job not found")
 	}
