@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -130,8 +131,8 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 		return err
 	}
 
-	startPoint := int(request.StartPoint)
-	sequenceCounter := 0
+	startPoint := request.StartPoint
+	var sequenceCounter int32 = 0
 
 	for err == nil {
 		var line string
@@ -141,13 +142,17 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 		}
 
 		if sequenceCounter >= startPoint {
-			err = stream.Send(&proto.Log{Entry: line})
+			err = stream.Send(&proto.Log{Entry: line, NbSequence: sequenceCounter})
 		}
 
 		sequenceCounter++
 	}
 
-	return err
+	if err != io.EOF {
+		return err
+	}
+
+	return nil
 }
 
 // Cleanup cleanups the service

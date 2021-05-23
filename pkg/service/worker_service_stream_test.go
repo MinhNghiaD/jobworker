@@ -16,6 +16,8 @@ import (
 )
 
 func TestStreaming(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +42,7 @@ func TestStreaming(t *testing.T) {
 			Args: args,
 		}
 
-		j, err := client.Stub.StartJob(context.Background(), command)
+		j, err := client.StartJob(context.Background(), command)
 		if err != nil {
 			t.Error(err)
 		}
@@ -58,19 +60,19 @@ func TestStreaming(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				stream, err := client.Stub.StreamLog(ctx, &proto.StreamRequest{Job: j, StartPoint: 0})
+				receiver, err := client.GetLogReceiver(ctx, j)
 				if err != nil {
 					t.Error(err)
 				}
 
-				logResults[index] = readLog(t, stream)
+				logResults[index] = readLog(t, receiver)
 			}(i)
 		}
 
 		// Let the jobs run for 5 seconds to collect enough logs
 		time.Sleep(5 * time.Second)
 
-		client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
+		client.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
 
 		wg.Wait()
 		checkResults(t, logResults)
@@ -116,10 +118,10 @@ func TestStreaming(t *testing.T) {
 }
 
 // readLog reads logs from the job
-func readLog(t *testing.T, logStream proto.WorkerService_StreamLogClient) []*proto.Log {
+func readLog(t *testing.T, receiver *client.LogReceiver) []*proto.Log {
 	readText := make([]*proto.Log, 0)
 	for {
-		line, err := logStream.Recv()
+		line, err := receiver.Read()
 		if err != nil {
 			if err != io.EOF {
 				t.Error(err)

@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -50,6 +52,81 @@ func (c *Client) QueryJob(ctx context.Context, j *proto.Job) (*proto.JobStatus, 
 
 func (c *Client) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	return c.stub.StopJob(ctx, request)
+}
+
+func (c *Client) GetLogReceiver(ctx context.Context, j *proto.Job) (*LogReceiver, error) {
+	stream, err := c.stub.StreamLog(ctx, &proto.StreamRequest{
+		Job:        j,
+		StartPoint: 0,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &LogReceiver{
+		stub:           c.stub,
+		stream:         stream,
+		latestSequence: 0,
+		job:            j,
+		ctx:            ctx,
+	}, nil
+}
+
+// LogReceiver handle a log stream from the server. LogReceiver is not designed to be thread-safe
+type LogReceiver struct {
+	stub           proto.WorkerServiceClient
+	stream         proto.WorkerService_StreamLogClient
+	latestSequence int32
+	job            *proto.Job
+	ctx            context.Context
+}
+
+func (receiver *LogReceiver) reset() error {
+	request := &proto.StreamRequest{
+		Job:        receiver.job,
+		StartPoint: receiver.latestSequence,
+	}
+
+	var err error
+	receiver.stream, err = receiver.stub.StreamLog(receiver.ctx, request)
+
+	return err
+}
+
+func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
+	line = nil
+	maxBackoff := time.Minute
+	currentBackoff := time.Second
+
+	for line == nil && currentBackoff < maxBackoff {
+		if receiver.stream != nil {
+			line, err = receiver.stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return nil, err
+				}
+
+				logrus.Debugf("Fail to receive log, err %s", err)
+				// Clearing the stream will force the client to resubscribe on next iteration
+				receiver.stream = nil
+			} else {
+				receiver.latestSequence++
+			}
+		}
+
+		if receiver.stream == nil {
+			// Reset stream
+			if receiver.reset() != nil {
+				logrus.Debugf("Try to reconnect")
+				time.Sleep(currentBackoff)
+
+				currentBackoff *= 2
+			}
+		}
+	}
+
+	return line, err
 }
 
 // clientDialOptions returns the gRPC configuration of the connection

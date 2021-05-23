@@ -49,7 +49,7 @@ message StreamRequest {
 
 message Log {
     // Nb of sequence of the current entry in the stream
-    string nbSequence = 1;
+    int32 nbSequence = 1;
     // A line of job log
     string entry = 2;
 }
