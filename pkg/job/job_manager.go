@@ -1,13 +1,15 @@
 package job
 
 import (
-	"fmt"
 	"os/exec"
 	"sync"
 
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // JobsManager is the interface for the externals to create and access to job
@@ -43,11 +45,20 @@ func NewManager() (JobsManager, error) {
 // CreateJob starts a new job in the background with the command and its arguments, then associates the job with its owner
 func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner string) (string, error) {
 	if manager.logsManager == nil {
-		return "", fmt.Errorf("Log Manager is not iniatiated")
+		return "", status.Errorf(codes.Unavailable, "Log Manager is not iniatiated")
 	}
 
 	if _, err := exec.LookPath(command); err != nil {
-		return "", err
+		badRequest := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "command",
+					Description: err.Error(),
+				},
+			},
+		}
+
+		return "", ReportError(codes.InvalidArgument, "Fail to start job", badRequest)
 	}
 
 	cmd := exec.Command(command, args...)
@@ -55,12 +66,12 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 
 	logger, err := manager.logsManager.NewLogger(ID.String())
 	if err != nil {
-		return "", err
+		return "", status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	j, err := newJob(ID, cmd, logger, owner)
 	if err != nil {
-		return "", err
+		return "", status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	// add job to the store
@@ -69,9 +80,7 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 	manager.mutex.Unlock()
 
 	// Start job
-	err = j.Start()
-
-	return ID.String(), err
+	return ID.String(), j.Start()
 }
 
 // GetJob searches for the job with the corresponding ID
@@ -92,8 +101,10 @@ func (manager *JobsManagerImpl) Cleanup() error {
 	logrus.Infof("Cleanup jobs")
 
 	for _, j := range manager.jobStore {
-		if err := j.Stop(true); err != nil && err != ErrNotRunning {
-			logrus.Warningf("Fail to stop job, %s", err)
+		if err := j.Stop(true); err != nil {
+			if st, ok := status.FromError(err); !ok || st.Code() != codes.AlreadyExists {
+				logrus.Warningf("Fail to stop job, %s", err)
+			}
 		}
 	}
 

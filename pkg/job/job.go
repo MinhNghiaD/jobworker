@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"sync"
@@ -11,14 +10,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/runtime/protoiface"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
-)
-
-var (
-	ErrNotRunning = errors.New("Job not running")
-	ErrTimeout    = errors.New("Time out")
 )
 
 // Job is managed by the worker for the execution of linux process
@@ -75,7 +73,17 @@ func (j *Impl) Start() error {
 	err := j.cmd.Start()
 	if err != nil {
 		j.changeState(proto.ProcessState_STOPPED)
-		return err
+
+		badRequest := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "command",
+					Description: err.Error(),
+				},
+			},
+		}
+
+		return ReportError(codes.PermissionDenied, "Fail to start job", badRequest)
 	}
 
 	go func() {
@@ -112,17 +120,44 @@ func (j *Impl) Start() error {
 // Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *Impl) Stop(force bool) error {
 	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
-		return ErrNotRunning
+		badRequest := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "job",
+					Description: "Job not running",
+				},
+			},
+		}
+
+		return ReportError(codes.AlreadyExists, "Fail to stop job", badRequest)
 	}
 
 	// Use SIGKILL to force the process to stop immediately, otherwise we will use SIGTERM
 	if force {
 		if err := j.cmd.Process.Signal(os.Kill); err != nil {
-			return err
+			badRequest := &errdetails.BadRequest{
+				FieldViolations: []*errdetails.BadRequest_FieldViolation{
+					{
+						Field:       "job",
+						Description: err.Error(),
+					},
+				},
+			}
+
+			return ReportError(codes.Internal, "Fail to stop job", badRequest)
 		}
 	} else {
 		if err := j.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			return err
+			badRequest := &errdetails.BadRequest{
+				FieldViolations: []*errdetails.BadRequest_FieldViolation{
+					{
+						Field:       "job",
+						Description: err.Error(),
+					},
+				},
+			}
+
+			return ReportError(codes.Internal, "Fail to stop job", badRequest)
 		}
 	}
 
@@ -131,10 +166,28 @@ func (j *Impl) Stop(force bool) error {
 	case _, ok := <-j.exitChan:
 		if !ok {
 			// exit channel is already closed, which means the process is already exited
-			return ErrNotRunning
+			badRequest := &errdetails.BadRequest{
+				FieldViolations: []*errdetails.BadRequest_FieldViolation{
+					{
+						Field:       "job",
+						Description: "Job not running",
+					},
+				},
+			}
+
+			return ReportError(codes.AlreadyExists, "Fail to stop job", badRequest)
 		}
 	case <-time.After(time.Second):
-		return ErrTimeout
+		badRequest := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "force",
+					Description: "Job takes too long to stop",
+				},
+			},
+		}
+
+		return ReportError(codes.DeadlineExceeded, "Fail to stop job", badRequest)
 	}
 
 	j.changeState(proto.ProcessState_STOPPED)
@@ -193,4 +246,15 @@ func (j *Impl) changeState(state proto.ProcessState) {
 	defer j.stateMutex.Unlock()
 
 	j.state = state
+}
+
+func ReportError(code codes.Code, desc string, details ...protoiface.MessageV1) error {
+	st := status.New(code, desc)
+	st, err := st.WithDetails(details...)
+	if err != nil {
+		logrus.Errorf("Fail to generate error, err %s", err)
+		return status.Errorf(code, desc)
+	}
+
+	return st.Err()
 }

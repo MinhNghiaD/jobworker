@@ -8,6 +8,8 @@ import (
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/status"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -68,7 +70,17 @@ func startJob(c *client.Client, cmd string, args []string) {
 
 	j, err := c.Stub.StartJob(ctx, command)
 	if err != nil {
-		logrus.Errorf("Fail to start job, %s", err)
+		s := status.Convert(err)
+		logrus.Errorf("Fail to start job, code %s, description %s", s.Code(), s.Message())
+
+		for _, d := range s.Details() {
+			switch info := d.(type) {
+			case *errdetails.QuotaFailure:
+				logrus.Errorf("Quota failure: %s", info)
+			default:
+				logrus.Errorf("Unexpected error: %s", info)
+			}
+		}
 		return
 	}
 
@@ -89,14 +101,24 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	status, err := c.Stub.StopJob(ctx, request)
+	st, err := c.Stub.StopJob(ctx, request)
 
 	if err != nil {
-		logrus.Errorf("Fail to stop job, %s", err)
+		s := status.Convert(err)
+		logrus.Errorf("Fail to stop jo, code %s, description %s", s.Code(), s.Message())
+
+		for _, d := range s.Details() {
+			switch info := d.(type) {
+			case *errdetails.QuotaFailure:
+				logrus.Errorf("Quota failure: %s", info)
+			default:
+				logrus.Errorf("Unexpected error: %s", info)
+			}
+		}
 		return
 	}
 
-	printJobStatus(status)
+	printJobStatus(st)
 }
 
 // queryJob queries the status of a job specified by jobID
@@ -108,14 +130,24 @@ func queryJob(c *client.Client, jobID string) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	status, err := c.Stub.QueryJob(ctx, &proto.Job{Id: jobID})
+	st, err := c.Stub.QueryJob(ctx, &proto.Job{Id: jobID})
 
 	if err != nil {
-		logrus.Errorf("Fail to query job, %s", err)
+		s := status.Convert(err)
+		logrus.Errorf("Fail to query job, code %s, description %s", s.Code(), s.Message())
+
+		for _, d := range s.Details() {
+			switch info := d.(type) {
+			case *errdetails.QuotaFailure:
+				logrus.Errorf("Quota failure: %s", info)
+			default:
+				logrus.Errorf("Unexpected error: %s", info)
+			}
+		}
 		return
 	}
 
-	printJobStatus(status)
+	printJobStatus(st)
 }
 
 // printJobStatus displays the job status

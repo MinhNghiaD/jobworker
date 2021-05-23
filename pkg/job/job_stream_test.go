@@ -9,6 +9,8 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestStreamLog(t *testing.T) {
@@ -58,7 +60,7 @@ func TestStreamLog(t *testing.T) {
 		// Let the jobs run for 10 seconds to collect enough logs
 		time.Sleep(10 * time.Second)
 
-		if err = j.Stop(forceStop); err != nil && err != job.ErrNotRunning {
+		if err = j.Stop(forceStop); err != nil && status.Convert(err).Code() != codes.AlreadyExists {
 			t.Error(err)
 		}
 
