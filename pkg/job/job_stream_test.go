@@ -55,8 +55,8 @@ func TestStreamLog(t *testing.T) {
 			}(i)
 		}
 
-		// Let the jobs run for 5 seconds to collect enough logs
-		time.Sleep(5 * time.Second)
+		// Let the jobs run for 10 seconds to collect enough logs
+		time.Sleep(10 * time.Second)
 
 		if err = j.Stop(forceStop); err != nil && err != job.ErrNotRunning {
 			t.Error(err)
@@ -140,7 +140,7 @@ func checkResults(t *testing.T, results []([]string)) {
 
 			for index, line := range results[i] {
 				if !reflect.DeepEqual(template[index], line) {
-					t.Errorf("Results's contents mismatch")
+					t.Errorf("Results's contents mismatch, %s != %s", template[index], line)
 				}
 			}
 		}(i)

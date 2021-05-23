@@ -11,7 +11,6 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
-	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/sirupsen/logrus"
 )
@@ -71,14 +70,7 @@ func TestStreaming(t *testing.T) {
 		// Let the jobs run for 5 seconds to collect enough logs
 		time.Sleep(5 * time.Second)
 
-		time.Sleep(time.Second)
-
-		status, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
-		if err != nil && err != job.ErrNotRunning {
-			t.Error(err)
-		}
-
-		logrus.Infof("Job status %s", status)
+		client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
 
 		wg.Wait()
 		checkResults(t, logResults)
@@ -161,7 +153,7 @@ func checkResults(t *testing.T, results []([]*proto.Log)) {
 
 			for index, line := range results[i] {
 				if !pb.Equal(template[index], line) {
-					t.Errorf("Results's contents mismatch")
+					t.Errorf("Results's contents mismatch: \n %s != %s", template[index], line)
 				}
 			}
 		}(i)

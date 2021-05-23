@@ -82,8 +82,36 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 }
 
 // StreamLog maintains a stream of job logs specified by user
-func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
-	return fmt.Errorf("Unimplemented")
+func (service *WorkerService) StreamLog(protoJob *proto.Job, stream proto.WorkerService_StreamLogServer) error {
+	if service.jobsManager == nil {
+		return fmt.Errorf("Job Managers is not ready")
+	}
+
+	j, ok := service.jobsManager.GetJob(protoJob.Id)
+	if !ok {
+		return fmt.Errorf("Job not found")
+	}
+
+	ctx := stream.Context()
+	logReader, err := j.GetLogReader(ctx)
+	if err != nil {
+		return err
+	}
+
+	// TODO use sequence counter to handle connection backoff
+	sequenceCounter := 0
+	for err == nil {
+		line, err := logReader.ReadLine()
+		if err != nil {
+			break
+		}
+
+		// TODO set retry period before exit
+		err = stream.Send(&proto.Log{Entry: line})
+		sequenceCounter++
+	}
+
+	return err
 }
 
 // Cleanup cleanups the service

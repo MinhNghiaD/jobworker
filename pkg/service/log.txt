@@ -1,0 +1,68 @@
+=== RUN   TestStreaming
+time="2021-05-23T15:15:12+02:00" level=info msg="Listen at port 7777"
+time="2021-05-23T15:15:12+02:00" level=info msg="Log files are stored in /tmp/worker-logs-493490065"
+=== RUN   TestStreaming/Short_term_command
+time="2021-05-23T15:15:12+02:00" level=info msg="Starting job 7e426c12-5f3c-4477-8e9e-6b52cdaa6d5e"
+time="2021-05-23T15:15:12+02:00" level=info msg="Started job id:\"7e426c12-5f3c-4477-8e9e-6b52cdaa6d5e\""
+=== RUN   TestStreaming/Short_term_long_result
+time="2021-05-23T15:15:17+02:00" level=info msg="Starting job 1245d011-e19b-4f9d-922b-18573f22a7f7"
+time="2021-05-23T15:15:17+02:00" level=info msg="Started job id:\"1245d011-e19b-4f9d-922b-18573f22a7f7\""
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\"nghia     1782  0.0  0.0  11312   320 ?        Ss   12:04   0:00 /usr/bin/ssh-agent /usr/bin/im-launch env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n" != entry:"evel\":\"info\",\"msg\":\"nghia     1782  0.0  0.0  11312   320 ?        Ss   12:04   0:00 /usr/bin/ssh-agent /usr/bin/im-launch env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"3-2317-23005 15:15:17\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"root       106  0.0  0.0      0     0 ?        I\\u003c   12:03   0:00 [ata_sff]\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\"nghia     1782  0.0  0.0  11312   320 ?        Ss   12:04   0:00 /usr/bin/ssh-agent /usr/bin/im-launch env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n" != entry:"evel\":\"info\",\"msg\":\"nghia     1782  0.0  0.0  11312   320 ?        Ss   12:04   0:00 /usr/bin/ssh-agent /usr/bin/im-launch env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu\",\"source\":\"stdout\",\"time\":\"23-2317-23005 15:15:17\"}\n"
+=== RUN   TestStreaming/long_running
+time="2021-05-23T15:15:22+02:00" level=info msg="Starting job 7614d80e-8056-4297-aeb8-f9c6d4b71058"
+time="2021-05-23T15:15:22+02:00" level=info msg="Started job id:\"7614d80e-8056-4297-aeb8-f9c6d4b71058\""
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\"   48 root      20   0       0      0      0 S   0,0  0,0   0:00.00 kauditd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n" != entry:"\",\"msg\":\"   48 root      20   0       0      0      0 S   0,0  0,0   0:00.00 kauditd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\" 1583 nghia     20   0  625832  14256  11580 S   0,0  0,1   0:00.33 gnome-sess+\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n" != entry:"  11580 S   0,0  0,1   0:00.33 gnome-sess+\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\" 2214 root      20   0  441040  38536  12620 S   0,0  0,3   0:02.88 packagekitd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n" != entry:"evel\":\"info\",\"msg\":\" 2214 root      20   0  441040  38536  12620 S   0,0  0,3   0:02.88 packagekitd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\"   55 root      39  19       0      0      0 S   0,0  0,0   0:00.08 khugepaged\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:" 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\" 1583 nghia     20   0  625832  14256  11580 S   0,0  0,1   0:00.33 gnome-sess+\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n" != entry:"  11580 S   0,0  0,1   0:00.33 gnome-sess+\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"{\"level\":\"info\",\"msg\":\" 2214 root      20   0  441040  38536  12620 S   0,0  0,3   0:02.88 packagekitd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n" != entry:"evel\":\"info\",\"msg\":\" 2214 root      20   0  441040  38536  12620 S   0,0  0,3   0:02.88 packagekitd\",\"source\":\"stdout\",\"time\":\"23-2322-23005 15:15:22\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+    worker_service_stream_test.go:156: Results's contents mismatch: 
+         entry:"r/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n" != entry:"{\"level\":\"info\",\"msg\":\"  221 root       0 -20       0      0      0 I   0,0  0,0   0:00.27 kworker/4:+\",\"source\":\"stdout\",\"time\":\"23-2325-23005 15:15:25\"}\n"
+=== RUN   TestStreaming/mask_signals_force_stop
+time="2021-05-23T15:15:27+02:00" level=info msg="Starting job 4ab8526f-0d44-4d83-8593-ed90f5ceee8b"
+time="2021-05-23T15:15:27+02:00" level=info msg="Started job id:\"4ab8526f-0d44-4d83-8593-ed90f5ceee8b\""
+time="2021-05-23T15:15:32+02:00" level=info msg="Cleanup jobs"
+--- FAIL: TestStreaming (20.08s)
+    --- PASS: TestStreaming/Short_term_command (5.01s)
+    --- FAIL: TestStreaming/Short_term_long_result (5.01s)
+    --- FAIL: TestStreaming/long_running (5.03s)
+    --- PASS: TestStreaming/mask_signals_force_stop (5.03s)
+FAIL
+FAIL	command-line-arguments	20.088s
+FAIL
