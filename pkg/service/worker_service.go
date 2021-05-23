@@ -63,12 +63,12 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "job",
-					Description: "Job not found",
+					Description: "Job ID is not correct",
 				},
 			},
 		}
 
-		return nil, job.ReportError(codes.InvalidArgument, "Fail to start job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to stop job", badRequest)
 	}
 
 	if err := j.Stop(request.Force); err != nil {
@@ -91,12 +91,12 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "job",
-					Description: "Job not found",
+					Description: "Job ID is not correct",
 				},
 			},
 		}
 
-		return nil, job.ReportError(codes.InvalidArgument, "Fail to start job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to query job", badRequest)
 	}
 
 	return j.Status(), nil

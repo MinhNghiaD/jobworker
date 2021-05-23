@@ -12,6 +12,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/runtime/protoiface"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
@@ -239,9 +240,9 @@ func (j *Impl) changeState(state proto.ProcessState) {
 	j.state = state
 }
 
-func ReportError(code codes.Code, desc string, details *errdetails.BadRequest) error {
+func ReportError(code codes.Code, desc string, details ...protoiface.MessageV1) error {
 	st := status.New(code, desc)
-	st, err := st.WithDetails(details)
+	st, err := st.WithDetails(details...)
 	if err != nil {
 		logrus.Errorf("Fail to generate error, err %s", err)
 		return status.Errorf(code, desc)

@@ -43,69 +43,67 @@ func TestStartJobs(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.Stub.StartJob(context.Background(), command)
+		_, err := client.Stub.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
-
-		logrus.Infof("Started job %s", job)
 
 		return nil
 	}
 
 	testcases := []struct {
-		name      string
-		cmd       string
-		args      []string
-		expectErr bool
+		name          string
+		cmd           string
+		args          []string
+		expectErrCode codes.Code
 	}{
 		{
 			"Empty Command",
 			"",
 			[]string{},
-			true,
+			codes.InvalidArgument,
 		},
 		{
 			"Non exist command",
 			"abc",
 			[]string{},
-			true,
+			codes.InvalidArgument,
 		},
 		{
 			"Short term",
 			"ls",
 			[]string{"-la"},
-			false,
+			codes.OK,
 		},
 		{
 			"File access",
 			"mkdir",
-			[]string{"/tmp/testdir"},
-			false,
+			[]string{fmt.Sprintf("/tmp/%s", randomString(3))},
+			codes.OK,
 		},
 		{
 			"Check user",
 			"whoami",
 			[]string{},
-			false,
+			codes.OK,
 		},
 		{
 			"long running",
 			"top",
 			[]string{"-b"},
-			false,
+			codes.OK,
 		},
 		{
 			"High privilege",
 			"apt",
 			[]string{"update"},
-			false,
+			codes.OK,
 		},
 		{
 			"bad args",
 			"ls",
 			[]string{"-wrong"},
-			false,
+			codes.OK,
 		},
 	}
 
@@ -113,15 +111,19 @@ func TestStartJobs(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			err := checkStartJob(testCase.cmd, testCase.args)
 
-			if (err != nil) != (testCase.expectErr) {
-				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
-				return
+			if err != nil {
+				s := status.Convert(err)
+				if s.Code() != testCase.expectErrCode {
+					t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, s.Code(), testCase.expectErrCode)
+				}
+			} else if testCase.expectErrCode != codes.OK {
+				t.Errorf("Test case %s with input %s returns no error, while %v error is expected", testCase.name, testCase.cmd, testCase.expectErrCode)
 			}
 		})
 	}
 }
 
-func TestGetJobStatus(t *testing.T) {
+func TestQueryJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +154,6 @@ func TestGetJobStatus(t *testing.T) {
 		}
 
 		logrus.Infof("Started job %s", job)
-
 		time.Sleep(time.Second)
 
 		jobStatus, err := client.Stub.QueryJob(context.Background(), job)
@@ -160,21 +161,19 @@ func TestGetJobStatus(t *testing.T) {
 			return err
 		}
 
-		logrus.Infof("Job status %s", jobStatus)
-
 		if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
-			return fmt.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
+			t.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
 		}
 
 		return nil
 	}
 
 	testcases := []struct {
-		name       string
-		cmd        string
-		args       []string
-		expectStat *proto.ProcessStatus
-		expectErr  bool
+		name          string
+		cmd           string
+		args          []string
+		expectStat    *proto.ProcessStatus
+		expectErrCode codes.Code
 	}{
 		{
 			"Empty Command",
@@ -184,7 +183,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			true,
+			codes.InvalidArgument,
 		},
 		{
 			"Non exist command",
@@ -194,7 +193,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			true,
+			codes.InvalidArgument,
 		},
 		{
 			"Short term command",
@@ -204,7 +203,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"File access",
@@ -214,7 +213,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"User identity",
@@ -224,7 +223,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"long running",
@@ -234,7 +233,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_RUNNING,
 				ExitCode: -1,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"High privilege",
@@ -244,7 +243,7 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"bad args",
@@ -254,23 +253,28 @@ func TestGetJobStatus(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 2,
 			},
-			false,
+			codes.OK,
 		},
 	}
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			err := checkQueryJob(testCase.cmd, testCase.args, testCase.expectStat)
 
-			if (err != nil) != (testCase.expectErr) {
-				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
-				return
+			if err != nil {
+				s := status.Convert(err)
+				if s.Code() != testCase.expectErrCode {
+					t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, s.Code(), testCase.expectErrCode)
+				}
+			} else if testCase.expectErrCode != codes.OK {
+				t.Errorf("Test case %s with input %s returns no error, while %v error is expected", testCase.name, testCase.cmd, testCase.expectErrCode)
 			}
 		})
 	}
 }
 
-func TestStopJob(t *testing.T) {
+func TestStopJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +305,6 @@ func TestStopJob(t *testing.T) {
 		}
 
 		logrus.Infof("Started job %s", job)
-
 		time.Sleep(time.Second)
 
 		jobStatus, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
@@ -309,22 +312,20 @@ func TestStopJob(t *testing.T) {
 			return err
 		}
 
-		logrus.Infof("Job status %s", jobStatus)
-
 		if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
-			return fmt.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
+			t.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
 		}
 
 		return nil
 	}
 
 	testcases := []struct {
-		name       string
-		cmd        string
-		args       []string
-		forceStop  bool
-		expectStat *proto.ProcessStatus
-		expectErr  bool
+		name          string
+		cmd           string
+		args          []string
+		forceStop     bool
+		expectStat    *proto.ProcessStatus
+		expectErrCode codes.Code
 	}{
 		{
 			"Empty Command",
@@ -335,7 +336,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			true,
+			codes.InvalidArgument,
 		},
 		{
 			"Non exist command",
@@ -346,10 +347,10 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			true,
+			codes.InvalidArgument,
 		},
 		{
-			"Sort term command",
+			"Short term command",
 			"ls",
 			[]string{"-la"},
 			false,
@@ -357,7 +358,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			true,
+			codes.AlreadyExists,
 		},
 		{
 			"File access",
@@ -368,7 +369,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			true,
+			codes.AlreadyExists,
 		},
 		{
 			"User identity",
@@ -379,7 +380,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 0,
 			},
-			true,
+			codes.AlreadyExists,
 		},
 		{
 			"long running",
@@ -390,7 +391,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: 0,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"long running force stop",
@@ -401,7 +402,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			false,
+			codes.OK,
 		},
 		{
 			"High privilege",
@@ -412,7 +413,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 100,
 			},
-			true,
+			codes.AlreadyExists,
 		},
 		{
 			"bad args",
@@ -423,7 +424,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_EXITED,
 				ExitCode: 2,
 			},
-			true,
+			codes.AlreadyExists,
 		},
 		{
 			"mask signals",
@@ -434,7 +435,7 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_RUNNING,
 				ExitCode: -1,
 			},
-			true,
+			codes.DeadlineExceeded,
 		},
 		{
 			"mask signals force stop",
@@ -445,16 +446,21 @@ func TestStopJob(t *testing.T) {
 				State:    proto.ProcessState_STOPPED,
 				ExitCode: -1,
 			},
-			false,
+			codes.OK,
 		},
 	}
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
 			err := checkStopJob(testCase.cmd, testCase.args, testCase.forceStop, testCase.expectStat)
-			if (err != nil) != (testCase.expectErr) {
-				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, err, testCase.expectErr)
-				return
+
+			if err != nil {
+				s := status.Convert(err)
+				if s.Code() != testCase.expectErrCode {
+					t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, s.Code(), testCase.expectErrCode)
+				}
+			} else if testCase.expectErrCode != codes.OK {
+				t.Errorf("Test case %s with input %s returns no error, while %v error is expected", testCase.name, testCase.cmd, testCase.expectErrCode)
 			}
 		})
 	}
@@ -478,46 +484,55 @@ func TestRequestBadJobs(t *testing.T) {
 		client.Close()
 	})
 
-	// Start a job
-	command := &proto.Command{
-		Cmd:  "top",
-		Args: []string{"-b"},
-	}
-
-	job, err := client.Stub.StartJob(context.Background(), command)
-	if err != nil {
-		t.Error(err)
-	}
-
-	jobStatus, err := client.Stub.QueryJob(context.Background(), job)
-	if err != nil {
-		t.Error(err)
-	}
-
-	logrus.Infof("Job status %s", jobStatus)
-
-	if (jobStatus.Status.State != proto.ProcessState_RUNNING) || (jobStatus.Status.ExitCode != -1) {
-		t.Error("Status is not as expected")
-	}
-
-	// Query and stop with wrong id
-	_, err = client.Stub.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
-	if err == nil {
-		t.Error("Reported no error when error is expected")
-	} else {
-		if st, ok := status.FromError(err); !ok || st.Code() != codes.InvalidArgument {
-			t.Errorf("Wrong error reported %s", err)
+	t.Run("Normal execution", func(t *testing.T) {
+		t.Parallel()
+		command := &proto.Command{
+			Cmd:  "top",
+			Args: []string{"-b"},
 		}
-	}
 
-	_, err = client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: true})
-	if err == nil {
-		t.Error("Reported no error when error is expected")
-	} else {
-		if st, ok := status.FromError(err); !ok || st.Code() != codes.InvalidArgument {
-			t.Errorf("Wrong error reported %s", err)
+		job, err := client.Stub.StartJob(context.Background(), command)
+		if err != nil {
+			t.Error(err)
 		}
-	}
+
+		jobStatus, err := client.Stub.QueryJob(context.Background(), job)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if (jobStatus.Status.State != proto.ProcessState_RUNNING) || (jobStatus.Status.ExitCode != -1) {
+			t.Error("Status is not as expected")
+		}
+	})
+
+	t.Run("Query wrong id", func(t *testing.T) {
+		t.Parallel()
+		_, err := client.Stub.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
+
+		if err == nil {
+			t.Error("Reported no error when error is expected")
+		} else {
+			s := status.Convert(err)
+			if s.Code() != codes.NotFound {
+				t.Errorf("Wrong error reported %s, expected %s", s.Code(), codes.NotFound)
+			}
+		}
+	})
+
+	t.Run("Stop wrong id", func(t *testing.T) {
+		t.Parallel()
+		_, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: false})
+
+		if err == nil {
+			t.Error("Reported no error when error is expected")
+		} else {
+			s := status.Convert(err)
+			if s.Code() != codes.NotFound {
+				t.Errorf("Wrong error reported %s, expected %s", s.Code(), codes.NotFound)
+			}
+		}
+	})
 }
 
 func randomString(length int) string {
