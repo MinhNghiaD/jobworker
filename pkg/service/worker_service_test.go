@@ -12,6 +12,8 @@ import (
 	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // NOTE we won't use context timeout for grpc testing because the respond time in test is not fast enough
@@ -153,15 +155,15 @@ func TestGetJobStatus(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		status, err := client.Stub.QueryJob(context.Background(), job)
+		jobStatus, err := client.Stub.QueryJob(context.Background(), job)
 		if err != nil {
 			return err
 		}
 
-		logrus.Infof("Job status %s", status)
+		logrus.Infof("Job status %s", jobStatus)
 
-		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
-			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
+		if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
+			return fmt.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
 		}
 
 		return nil
@@ -302,15 +304,15 @@ func TestStopJob(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		status, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
+		jobStatus, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
 		if err != nil {
 			return err
 		}
 
-		logrus.Infof("Job status %s", status)
+		logrus.Infof("Job status %s", jobStatus)
 
-		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
-			return fmt.Errorf("Status is %v, when expected %v", status, expectedStatus)
+		if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
+			return fmt.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
 		}
 
 		return nil
@@ -487,26 +489,34 @@ func TestRequestBadJobs(t *testing.T) {
 		t.Error(err)
 	}
 
-	status, err := client.Stub.QueryJob(context.Background(), job)
+	jobStatus, err := client.Stub.QueryJob(context.Background(), job)
 	if err != nil {
 		t.Error(err)
 	}
 
-	logrus.Infof("Job status %s", status)
+	logrus.Infof("Job status %s", jobStatus)
 
-	if (status.Status.State != proto.ProcessState_RUNNING) || (status.Status.ExitCode != -1) {
+	if (jobStatus.Status.State != proto.ProcessState_RUNNING) || (jobStatus.Status.ExitCode != -1) {
 		t.Error("Status is not as expected")
 	}
 
 	// Query and stop with wrong id
 	_, err = client.Stub.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
-	if err == nil || err.Error() != "Job not found" {
-		t.Error("Wrong error reported")
+	if err == nil {
+		t.Error("Reported no error when error is expected")
+	} else {
+		if st, ok := status.FromError(err); !ok || st.Code() != codes.InvalidArgument {
+			t.Errorf("Wrong error reported %s", err)
+		}
 	}
 
 	_, err = client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: true})
-	if err == nil || err.Error() != "Job not found" {
-		t.Error("Wrong error reported")
+	if err == nil {
+		t.Error("Reported no error when error is expected")
+	} else {
+		if st, ok := status.FromError(err); !ok || st.Code() != codes.InvalidArgument {
+			t.Errorf("Wrong error reported %s", err)
+		}
 	}
 }
 
