@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TODO: using grpc compression to reduce message size
+
 // WorkerService is the gRPC Service of Worker
 type WorkerService struct {
 	proto.UnimplementedWorkerServiceServer
@@ -105,12 +107,21 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 // StreamLog maintains a stream of job logs specified by user
 func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream proto.WorkerService_StreamLogServer) error {
 	if service.jobsManager == nil {
-		return fmt.Errorf("Job Managers is not ready")
+		return status.Errorf(codes.Unavailable, "Job Managers is not ready")
 	}
 
 	j, ok := service.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		return fmt.Errorf("Job not found")
+		badRequest := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "job",
+					Description: "Job ID is not correct",
+				},
+			},
+		}
+
+		return job.ReportError(codes.NotFound, "Fail to stream log", badRequest)
 	}
 
 	ctx := stream.Context()
@@ -119,16 +130,20 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 		return err
 	}
 
-	// TODO use sequence counter to handle connection backoff
+	startPoint := int(request.StartPoint)
 	sequenceCounter := 0
+
 	for err == nil {
-		line, err := logReader.ReadLine()
+		var line string
+		line, err = logReader.ReadLine()
 		if err != nil {
 			break
 		}
 
-		// TODO set retry period before exit
-		err = stream.Send(&proto.Log{Entry: line})
+		if sequenceCounter >= startPoint {
+			err = stream.Send(&proto.Log{Entry: line})
+		}
+
 		sequenceCounter++
 	}
 

@@ -224,7 +224,21 @@ func (j *Impl) Status() *proto.JobStatus {
 
 // GetLogReader returns a log.Reader object that allow us to read log from job's log file
 func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
-	return j.logger.NewReader(ctx)
+	reader, err := j.logger.NewReader(ctx)
+	if err != nil {
+		quora := &errdetails.QuotaFailure{
+			Violations: []*errdetails.QuotaFailure_Violation{
+				{
+					Subject:     "log reader",
+					Description: err.Error(),
+				},
+			},
+		}
+
+		return nil, ReportError(codes.ResourceExhausted, "Fail to init log reader", quora)
+	}
+
+	return reader, nil
 }
 
 // String returns the command wrapped by the job

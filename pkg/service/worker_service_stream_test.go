@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/golang/protobuf/proto"
+	pb "google.golang.org/protobuf/proto"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
