@@ -12,7 +12,7 @@ import (
 // Client is gRPC Client that allows user to access to Worker APIs
 type Client struct {
 	connection *grpc.ClientConn
-	Stub       proto.WorkerServiceClient
+	stub       proto.WorkerServiceClient
 }
 
 // New creates a new Client to connect to server address specified in the parameters
@@ -27,17 +27,29 @@ func New(address string) (*Client, error) {
 		return nil, err
 	}
 
-	Stub := proto.NewWorkerServiceClient(connection)
+	stub := proto.NewWorkerServiceClient(connection)
 
 	return &Client{
 		connection: connection,
-		Stub:       Stub,
+		stub:       stub,
 	}, nil
 }
 
 // Close closes the gRpc connection
 func (c *Client) Close() error {
 	return c.connection.Close()
+}
+
+func (c *Client) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
+	return c.stub.StartJob(ctx, cmd)
+}
+
+func (c *Client) QueryJob(ctx context.Context, j *proto.Job) (*proto.JobStatus, error) {
+	return c.stub.QueryJob(ctx, j)
+}
+
+func (c *Client) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
+	return c.stub.StopJob(ctx, request)
 }
 
 // clientDialOptions returns the gRPC configuration of the connection
