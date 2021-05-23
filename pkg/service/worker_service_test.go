@@ -43,7 +43,7 @@ func TestStartJobs(t *testing.T) {
 			Args: args,
 		}
 
-		_, err := client.Stub.StartJob(context.Background(), command)
+		_, err := client.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func TestQueryJobs(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.Stub.StartJob(context.Background(), command)
+		job, err := client.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func TestQueryJobs(t *testing.T) {
 		logrus.Infof("Started job %s", job)
 		time.Sleep(time.Second)
 
-		jobStatus, err := client.Stub.QueryJob(context.Background(), job)
+		jobStatus, err := client.QueryJob(context.Background(), job)
 		if err != nil {
 			return err
 		}
@@ -299,7 +299,7 @@ func TestStopJobs(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.Stub.StartJob(context.Background(), command)
+		job, err := client.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -307,7 +307,7 @@ func TestStopJobs(t *testing.T) {
 		logrus.Infof("Started job %s", job)
 		time.Sleep(time.Second)
 
-		jobStatus, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
+		jobStatus, err := client.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
 		if err != nil {
 			return err
 		}
@@ -491,12 +491,12 @@ func TestRequestBadJobs(t *testing.T) {
 			Args: []string{"-b"},
 		}
 
-		job, err := client.Stub.StartJob(context.Background(), command)
+		job, err := client.StartJob(context.Background(), command)
 		if err != nil {
 			t.Error(err)
 		}
 
-		jobStatus, err := client.Stub.QueryJob(context.Background(), job)
+		jobStatus, err := client.QueryJob(context.Background(), job)
 		if err != nil {
 			t.Error(err)
 		}
@@ -508,7 +508,7 @@ func TestRequestBadJobs(t *testing.T) {
 
 	t.Run("Query wrong id", func(t *testing.T) {
 		t.Parallel()
-		_, err := client.Stub.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
+		_, err := client.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
 
 		if err == nil {
 			t.Error("Reported no error when error is expected")
@@ -522,7 +522,7 @@ func TestRequestBadJobs(t *testing.T) {
 
 	t.Run("Stop wrong id", func(t *testing.T) {
 		t.Parallel()
-		_, err := client.Stub.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: false})
+		_, err := client.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: false})
 
 		if err == nil {
 			t.Error("Reported no error when error is expected")

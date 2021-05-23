@@ -68,7 +68,7 @@ func startJob(c *client.Client, cmd string, args []string) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
-	j, err := c.Stub.StartJob(ctx, command)
+	j, err := c.StartJob(ctx, command)
 	if err != nil {
 		s := status.Convert(err)
 		logrus.Errorf("Fail to start job, code %s, description %s", s.Code(), s.Message())
@@ -101,7 +101,7 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	st, err := c.Stub.StopJob(ctx, request)
+	st, err := c.StopJob(ctx, request)
 
 	if err != nil {
 		s := status.Convert(err)
@@ -130,7 +130,7 @@ func queryJob(c *client.Client, jobID string) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	st, err := c.Stub.QueryJob(ctx, &proto.Job{Id: jobID})
+	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 
 	if err != nil {
 		s := status.Convert(err)

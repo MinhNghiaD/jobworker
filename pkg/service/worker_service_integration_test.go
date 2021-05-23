@@ -102,7 +102,7 @@ func TestSimulation(t *testing.T) {
 						Args: testcase.args,
 					}
 
-					job, err := client.Stub.StartJob(context.Background(), cmd)
+					job, err := client.StartJob(context.Background(), cmd)
 					if err != nil {
 						logrus.Warningf("Fail to start job, %s", err)
 					} else {
@@ -117,7 +117,7 @@ func TestSimulation(t *testing.T) {
 						Force: false,
 					}
 
-					status, err := client.Stub.StopJob(context.Background(), request)
+					status, err := client.StopJob(context.Background(), request)
 					if err != nil {
 						logrus.Warningf("Fail to stop job, %s", err)
 					} else {
@@ -129,7 +129,7 @@ func TestSimulation(t *testing.T) {
 						Id: jobIDs.RandomID(),
 					}
 
-					status, err := client.Stub.QueryJob(context.Background(), job)
+					status, err := client.QueryJob(context.Background(), job)
 					if err != nil {
 						logrus.Warningf("Fail to query job, %s", err)
 					} else {
