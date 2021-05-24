@@ -109,25 +109,27 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 					return nil, err
 				}
 
-				logrus.Debugf("Fail to receive log, err %s", err)
 				// Clearing the stream will force the client to resubscribe on next iteration
 				receiver.stream = nil
 			} else {
 				receiver.latestSequence++
+				break
 			}
 		}
 
 		if receiver.stream == nil {
 			// Reset stream
-			if receiver.reset() != nil {
-				logrus.Debugf("Try to reconnect")
-				select {
-				case <-time.After(currentBackoff):
-					currentBackoff *= 2
-				case <-receiver.ctx.Done():
-					return nil, status.Error(codes.DeadlineExceeded, "Timeout")
-				}
+			if e := receiver.reset(); e != nil {
+				logrus.Debugf("Fail to reset stream, %s", e)
 			}
+		}
+
+		logrus.Debugf("Try to reconnect")
+		select {
+		case <-time.After(currentBackoff):
+			currentBackoff *= 2
+		case <-receiver.ctx.Done():
+			return nil, status.Error(codes.DeadlineExceeded, "Timeout")
 		}
 	}
 

@@ -176,9 +176,10 @@ func streamLog(c *client.Client, jobID string) {
 		if err == nil {
 			var data map[string]string
 			if err := json.Unmarshal([]byte(entry.Entry), &data); err != nil {
-				logrus.Fatal(entry.Entry)
+				logrus.Warn("Fail to decode json format")
+			} else {
+				fmt.Printf("%s: %s\n", data["source"], data["msg"])
 			}
-			fmt.Println(data)
 		}
 	}
 
