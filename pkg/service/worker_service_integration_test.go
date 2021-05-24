@@ -97,7 +97,7 @@ func TestSimulation(t *testing.T) {
 			defer client.Close()
 
 			for j := 0; j < 50; j++ {
-				switch rand.Int() % 3 {
+				switch rand.Int() % 4 {
 				case 0:
 					// Start job
 					testcase := testcases[rand.Int()%len(testcases)]
@@ -140,6 +140,24 @@ func TestSimulation(t *testing.T) {
 					} else {
 						logrus.Infof("Query job, status %s", status)
 					}
+				case 3:
+					// Stream log
+					job := &proto.Job{
+						Id: jobIDs.RandomID(),
+					}
+
+					if len(job.Id) > 0 {
+						receiver, err := client.GetLogReceiver(context.Background(), job)
+						if err != nil {
+							for {
+								if _, err := receiver.Read(); err != nil {
+									break
+								}
+							}
+
+						}
+					}
+
 				}
 			}
 		}()
