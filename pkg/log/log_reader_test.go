@@ -33,6 +33,7 @@ func TestLogRead(t *testing.T) {
 
 			if !reflect.DeepEqual(entry, line) {
 				t.Errorf("Read content mismatch \n %s != %s", entry, line)
+				return
 			}
 		}
 	}
@@ -147,13 +148,15 @@ func testRead(ctx context.Context, t *testing.T, logger *Logger) []string {
 	defer logReader.Close()
 
 	readText := make([]string, 0)
+	counter := 0
 	for {
-		line, err := logReader.ReadLine()
+		line, err := logReader.ReadAt(counter)
 		if err != nil {
 			break
 		}
 
 		readText = append(readText, line)
+		counter++
 	}
 
 	return readText

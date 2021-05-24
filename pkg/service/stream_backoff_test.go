@@ -15,7 +15,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-// This tests is internal test of connection backoff implementation
+// This test is internal test of connection backoff implementation. This test start a job that counting number from 0.
+// The client will request the log stream from this job and use the number counted in the log as the sequence number.
+// We will simulate connection interruption and see if the client is capable of resuming the stream.
 func TestStreamBackoff(t *testing.T) {
 	server, err := NewServer(7777)
 	if err != nil {
@@ -32,7 +34,7 @@ func TestStreamBackoff(t *testing.T) {
 	// start a job that count from 0 then use it to compare the sequence received by the stream receiver
 	command := &proto.Command{
 		Cmd:  "bash",
-		Args: []string{"-c", "i=0; while true; do echo $i; let i=$i+1; sleep 1; done"},
+		Args: []string{"-c", "for i in `seq 0 1000`; do echo $i; sleep 0.01; done"},
 	}
 
 	j, err := c.StartJob(context.Background(), command)
@@ -43,6 +45,7 @@ func TestStreamBackoff(t *testing.T) {
 	// Init the stream
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	receiver, err := c.GetLogReceiver(ctx, j)
 	if err != nil {
 		t.Error(err)
@@ -51,24 +54,27 @@ func TestStreamBackoff(t *testing.T) {
 	// Simulate unstable connection by interrupting the server but keep the service
 	go func() {
 		for i := 0; i < 3; i++ {
-			time.Sleep(5 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
+
 			server.grpcServer.Stop()
 
-			time.Sleep(2 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+			}
+
 			server, err = resetServer(server)
 			if err != nil {
 				t.Error(err)
 			}
 
-			go func() {
-				if err := server.Serve(); err != nil {
-					t.Error(err)
-				}
-			}()
+			go server.Serve()
 		}
-
-		// Stop the job to signal the exit
-		c.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: true})
 	}()
 
 	counter := 0
@@ -87,18 +93,15 @@ func TestStreamBackoff(t *testing.T) {
 			break
 		} else {
 			sequence, err := strconv.Atoi(data["msg"])
-			if err != nil {
-				t.Error(err)
-				break
-			}
+			if err == nil {
+				// Compare the sequence received
+				if sequence != counter {
+					t.Errorf("Sequence mismatch %d != %d", sequence, counter)
+					break
+				}
 
-			// Compare the sequence received
-			if sequence != counter {
-				t.Errorf("Sequence mismatch %d != %d", sequence, counter)
-				break
+				counter++
 			}
-
-			counter++
 		}
 	}
 

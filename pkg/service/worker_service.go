@@ -137,20 +137,16 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 
 	defer logReader.Close()
 
-	startPoint := request.StartPoint
-	var sequenceCounter int32 = 0
-
+	// Service will start the stream at the request starting point
+	sequenceCounter := request.StartPoint
 	for err == nil {
 		var line string
-		line, err = logReader.ReadLine()
+		line, err = logReader.ReadAt(int(sequenceCounter))
 		if err != nil {
 			break
 		}
 
-		if sequenceCounter >= startPoint {
-			err = stream.Send(&proto.Log{Entry: line, NbSequence: sequenceCounter})
-		}
-
+		err = stream.Send(&proto.Log{Entry: line, NbSequence: sequenceCounter})
 		sequenceCounter++
 	}
 
@@ -233,7 +229,7 @@ func serverConfig() []grpc.ServerOption {
 	// TODO add TLS and Interceptors
 	opts = append(opts, grpc.KeepaliveParams(keepalivePolicy))
 	opts = append(opts, grpc.KeepaliveEnforcementPolicy(enforcementPolicy))
-	//opts = append(opts, grpc.MaxConcurrentStreams(1000))
+	opts = append(opts, grpc.MaxConcurrentStreams(1000))
 
 	return opts
 }
