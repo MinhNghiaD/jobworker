@@ -641,6 +641,23 @@ func TestRequestBadJobs(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Stream wrong id", func(t *testing.T) {
+		t.Parallel()
+		receiver, err := client.GetLogReceiver(context.Background(), &proto.Job{Id: uuid.New().String()})
+		for err == nil {
+			_, err = receiver.Read()
+		}
+
+		if err == nil {
+			t.Error("Reported no error when error is expected")
+		} else {
+			s := status.Convert(err)
+			if s.Code() != codes.NotFound {
+				t.Errorf("Wrong error reported %s, expected %s", s.Code(), codes.NotFound)
+			}
+		}
+	})
 }
 
 func randomString(length int) string {

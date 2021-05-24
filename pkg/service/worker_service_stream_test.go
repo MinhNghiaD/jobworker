@@ -15,6 +15,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TestStreaming tests real-time log streaming, where a long running job is running in the background,
+// and there are multiple clients request to receive its log.
+// The test fails when clients fail to receive the logs or when the logs received by the clients are not the same.
 func TestStreaming(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
@@ -47,14 +50,11 @@ func TestStreaming(t *testing.T) {
 			t.Error(err)
 		}
 
-		logrus.Infof("Started job %s", j)
-
 		logResults := make([]([]*proto.Log), 10)
-
 		var wg sync.WaitGroup
+
 		for i := 0; i < len(logResults); i++ {
 			wg.Add(1)
-
 			go func(index int) {
 				defer wg.Done()
 				ctx, cancel := context.WithCancel(context.Background())
@@ -69,12 +69,11 @@ func TestStreaming(t *testing.T) {
 			}(i)
 		}
 
-		// Let the jobs run for 5 seconds to collect enough logs
+		// Let the jobs run for 5 seconds
 		time.Sleep(5 * time.Second)
-
 		client.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
-
 		wg.Wait()
+
 		checkResults(t, logResults)
 	}
 
