@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
@@ -97,7 +98,7 @@ func TestSimulation(t *testing.T) {
 			defer client.Close()
 
 			for j := 0; j < 50; j++ {
-				switch rand.Int() % 4 {
+				switch rand.Int() % 3 {
 				case 0:
 					// Start job
 					testcase := testcases[rand.Int()%len(testcases)]
@@ -140,25 +141,15 @@ func TestSimulation(t *testing.T) {
 					} else {
 						logrus.Infof("Query job, status %s", status)
 					}
-				case 3:
-					// Stream log
-					job := &proto.Job{
-						Id: jobIDs.RandomID(),
-					}
-
-					if len(job.Id) > 0 {
-						receiver, err := client.GetLogReceiver(context.Background(), job)
-						if err != nil {
-							for {
-								if _, err := receiver.Read(); err != nil {
-									break
-								}
-							}
-
-						}
-					}
-
 				}
+			}
+
+			// Stream log for 5 seconds after finished all uniary operations
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			receiver, err := client.GetLogReceiver(ctx, &proto.Job{Id: jobIDs.RandomID()})
+			for err != nil {
+				_, err = receiver.Read()
 			}
 		}()
 	}
