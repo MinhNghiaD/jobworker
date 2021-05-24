@@ -1,30 +1,27 @@
 package log
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 // Reader is the interface that allow a stream to retrieve enties of a process log
 type Reader interface {
-	// ReadLine reads an entry in the log file
+	// ReadAt reads an entry in the log file at a given index
 	// If there is no more data to read, it will wait until there is new entry in the file
 	// If the file is closed, ReadLine returns an empty string with an EOF error
-	ReadLine() (string, error)
+	ReadAt(index int) (string, error)
 	// Close closes reader and release its resources
 	Close() error
 }
 
 // ReaderImpl implements the functionalities of LogReader interface
 type ReaderImpl struct {
-	file      *os.File
-	buffer    *bufio.Reader
+	fileName  string
 	hook      *EventHook
 	id        string
 	eventChan <-chan bool
@@ -39,15 +36,8 @@ func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader
 		return nil, fmt.Errorf("Fail to init subscribe to event hook")
 	}
 
-	// Open file for read-only
-	file, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ReaderImpl{
-		file:      file,
-		buffer:    bufio.NewReader(file),
+		fileName:  fileName,
 		hook:      hook,
 		id:        id,
 		eventChan: eventChan,
@@ -55,12 +45,23 @@ func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader
 	}, nil
 }
 
-// TODO: Using an indexing system that allow quick access to file using line index, instead of scan the entire a file for every read.
-// This will speed up the continuation of an interrupted stream.
+// ReadAt reads line at a given index in the log file
+func (reader *ReaderImpl) ReadAt(index int) (string, error) {
+	file, err := os.Open(reader.fileName)
+	if err != nil {
+		return "", err
+	}
 
-// ReadLine reads the next line in the log file. If the logging is finished or the reading is cancel by its context, ReadLine will return with an error
-func (reader *ReaderImpl) ReadLine() (string, error) {
-	bytes, err := reader.buffer.ReadBytes('\n')
+	defer file.Close()
+
+	var data []byte
+	var entryOffset *EntryOffset = nil
+
+	entryOffset, err = reader.hook.lookupEntry(index)
+	if entryOffset != nil {
+		data = make([]byte, entryOffset.size)
+		_, err = file.ReadAt(data, entryOffset.offset)
+	}
 
 	if err != nil && err != io.EOF {
 		return "", err
@@ -72,19 +73,22 @@ func (reader *ReaderImpl) ReadLine() (string, error) {
 		}
 
 		// TODO handle log rotation
-		bytes, err = reader.buffer.ReadBytes('\n')
+		if entryOffset == nil {
+			entryOffset, err = reader.hook.lookupEntry(index)
+		}
+
+		if entryOffset != nil {
+			data = make([]byte, entryOffset.size)
+			_, err = file.ReadAt(data, entryOffset.offset)
+		}
 	}
 
-	return string(bytes), err
+	return string(data), err
 }
 
 // Close closes the reader and freeup its resources
 func (reader *ReaderImpl) Close() error {
-	if err := reader.hook.unsubscribe(reader.id); err != nil {
-		logrus.Warnf("Fail to unsubscribe, error %s", err)
-	}
-
-	return reader.file.Close()
+	return reader.hook.unsubscribe(reader.id)
 }
 
 // wait waits for the log file is available to continue reading

@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -89,6 +90,8 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	// Create event hook to receive file event from logger
 	eventHook := &EventHook{
 		subscribers: make(map[string]chan bool),
+		lineOffset:  make([]*EntryOffset, 0, 1024),
+		nextLinePos: 0,
 		isClosed:    false,
 	}
 	logger.AddHook(eventHook)
@@ -113,32 +116,52 @@ func (manager *LogsManager) Cleanup() error {
 type EventHook struct {
 	// Map subscriber-channel, we will send true to the channel in the event of a write, and false in the event of log closing
 	subscribers map[string](chan bool)
+	// lineOffset indexes the offset and the length of lines in the log file
+	lineOffset []*EntryOffset
+	// nextLinePos points to the end of file which will be the offset of the next line
+	nextLinePos int64
 	isClosed    bool
-	mu          sync.RWMutex
+	eventMutex  sync.RWMutex
+	offsetMutex sync.RWMutex
 }
 
 // Fire receives write signal from logger, it will send write event to all its subscribers
 func (hook *EventHook) Fire(e *logrus.Entry) error {
-	hook.mu.RLock()
-	defer hook.mu.RUnlock()
+	hook.eventMutex.RLock()
+	defer hook.eventMutex.RUnlock()
 
 	if hook.isClosed {
 		return fmt.Errorf("Event Hook is closed")
 	}
 
+	s, err := e.String()
+	if err != nil {
+		return err
+	}
+
 	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		hook.offsetMutex.Lock()
+		hook.lineOffset = append(hook.lineOffset, &EntryOffset{hook.nextLinePos, len(s)})
+		hook.nextLinePos += int64(len(s))
+		hook.offsetMutex.Unlock()
+	}()
+
 	for _, sub := range hook.subscribers {
 		wg.Add(1)
 		go func(sub chan bool) {
+			defer wg.Done()
+
 			select {
 			case sub <- true:
 			case <-time.After(100 * time.Millisecond):
 			}
-			wg.Done()
 		}(sub)
-
-		wg.Wait()
 	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -148,10 +171,21 @@ func (hook *EventHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
+func (hook *EventHook) lookupEntry(index int) (*EntryOffset, error) {
+	hook.offsetMutex.RLock()
+	defer hook.offsetMutex.RUnlock()
+
+	if index < len(hook.lineOffset) {
+		return hook.lineOffset[index], nil
+	}
+
+	return nil, io.EOF
+}
+
 // subscribe add a subscriber and gives it an event channel to receive file event
 func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
-	hook.mu.Lock()
-	defer hook.mu.Unlock()
+	hook.eventMutex.Lock()
+	defer hook.eventMutex.Unlock()
 
 	if _, ok := hook.subscribers[id]; ok {
 		return nil, fmt.Errorf("Subscriber is already added")
@@ -171,8 +205,8 @@ func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 
 // unsubscribe removes a subscriber and close its channel
 func (hook *EventHook) unsubscribe(id string) error {
-	hook.mu.Lock()
-	defer hook.mu.Unlock()
+	hook.eventMutex.Lock()
+	defer hook.eventMutex.Unlock()
 
 	if _, ok := hook.subscribers[id]; !ok {
 		return fmt.Errorf("Subscriber is already added")
@@ -187,20 +221,25 @@ func (hook *EventHook) unsubscribe(id string) error {
 
 // close closes the event hook and informs all its subscribers that the logger has stopped writing
 func (hook *EventHook) close() {
-	hook.mu.Lock()
-	defer hook.mu.Unlock()
+	hook.eventMutex.Lock()
+	defer hook.eventMutex.Unlock()
 
 	hook.isClosed = true
 
 	var wg sync.WaitGroup
 	for _, sub := range hook.subscribers {
 		wg.Add(1)
-		go func() {
+		go func(sub chan bool) {
 			defer wg.Done()
 			// Send true to channel to flush out the read before closing
 			sub <- true
 			sub <- false
-		}()
-		wg.Wait()
+		}(sub)
 	}
+	wg.Wait()
+}
+
+type EntryOffset struct {
+	offset int64
+	size   int
 }

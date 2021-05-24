@@ -111,13 +111,15 @@ func TestStreamLog(t *testing.T) {
 // readLog reads logs from the job
 func readLog(t *testing.T, logReader log.Reader) []string {
 	readText := make([]string, 0)
+	counter := 0
 	for {
-		line, err := logReader.ReadLine()
+		line, err := logReader.ReadAt(counter)
 		if err != nil {
 			break
 		}
 
 		readText = append(readText, line)
+		counter++
 	}
 
 	return readText
