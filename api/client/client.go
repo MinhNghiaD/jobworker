@@ -8,6 +8,7 @@ import (
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
@@ -44,18 +45,22 @@ func (c *Client) Close() error {
 	return c.connection.Close()
 }
 
+// StartJob starts a job on the server
 func (c *Client) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
 	return c.stub.StartJob(ctx, cmd)
 }
 
+// QueryJob queries the status of a job on the server
 func (c *Client) QueryJob(ctx context.Context, j *proto.Job) (*proto.JobStatus, error) {
 	return c.stub.QueryJob(ctx, j)
 }
 
+// StopJob stop a job on the server and return its status
 func (c *Client) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	return c.stub.StopJob(ctx, request)
 }
 
+// GetLogReceiver returns a LogReceiver that can read log stream line by line
 func (c *Client) GetLogReceiver(ctx context.Context, j *proto.Job) (*LogReceiver, error) {
 	stream, err := c.stub.StreamLog(ctx, &proto.StreamRequest{
 		Job:        j,
@@ -67,9 +72,9 @@ func (c *Client) GetLogReceiver(ctx context.Context, j *proto.Job) (*LogReceiver
 	}
 
 	return &LogReceiver{
-		stub:           c.stub,
+		cli:            c,
 		stream:         stream,
-		latestSequence: 0,
+		latestSequence: -1,
 		job:            j,
 		ctx:            ctx,
 	}, nil
@@ -77,30 +82,38 @@ func (c *Client) GetLogReceiver(ctx context.Context, j *proto.Job) (*LogReceiver
 
 // LogReceiver handle a log stream from the server. LogReceiver is not designed to be thread-safe
 type LogReceiver struct {
-	stub           proto.WorkerServiceClient
-	stream         proto.WorkerService_StreamLogClient
+	cli    *Client
+	stream proto.WorkerService_StreamLogClient
+	job    *proto.Job
+	ctx    context.Context
+	// latestSequence indicate the latest log sequence received by the receiver
+	// it is used in reset in order to continue the current stream, instead of restart from the beginning
 	latestSequence int32
-	job            *proto.Job
-	ctx            context.Context
 }
 
+// reset resets the stream connection
 func (receiver *LogReceiver) reset() error {
+	receiver.cli.connection.ResetConnectBackoff()
+
 	request := &proto.StreamRequest{
-		Job:        receiver.job,
-		StartPoint: receiver.latestSequence,
+		Job: receiver.job,
+		// point the start point to the next sequence
+		StartPoint: receiver.latestSequence + 1,
 	}
 
 	var err error
-	receiver.stream, err = receiver.stub.StreamLog(receiver.ctx, request)
+	receiver.stream, err = receiver.cli.stub.StreamLog(receiver.ctx, request)
 
 	return err
 }
 
+// Read reads the next log entry
 func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 	line = nil
-	maxBackoff := time.Minute
+	const maxBackoff = time.Minute
 	currentBackoff := time.Second
 
+	// Attemp to read a log entry, with a retry period of maxBackoff
 	for line == nil && currentBackoff < maxBackoff {
 		if receiver.stream != nil {
 			line, err = receiver.stream.Recv()
@@ -109,29 +122,29 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 					return nil, err
 				}
 
+				// Decode error code, we allow backoff only when the error is Unavailable, DeadlineExceeded
 				logrus.Debugf("Fail to receive data, %s", err)
-
 				errCode := status.Convert(err).Code()
-				if errCode != codes.Unavailable && errCode != codes.DeadlineExceeded && errCode != codes.DataLoss {
+				if errCode != codes.Unavailable && errCode != codes.DeadlineExceeded {
 					return nil, err
 				}
 
 				// Clearing the stream will force the client to resubscribe on next iteration
 				receiver.stream = nil
 			} else {
-				receiver.latestSequence++
+				// Update the sequence number and reset the backoff interval
+				receiver.latestSequence = line.NbSequence
+				currentBackoff = time.Second
 				break
 			}
 		}
 
 		if receiver.stream == nil {
-			// Reset stream
 			if e := receiver.reset(); e != nil {
 				logrus.Debugf("Fail to reset stream, %s", e)
 			}
 		}
 
-		logrus.Debugf("Try to reconnect")
 		select {
 		case <-time.After(currentBackoff):
 			currentBackoff *= 2
@@ -153,8 +166,19 @@ func clientDialOptions() []grpc.DialOption {
 		Timeout: 180 * time.Second,
 	}
 
+	connectParameters := grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  time.Second,
+			Multiplier: 1.5,
+			Jitter:     0.2,
+			MaxDelay:   120 * time.Second,
+		},
+		MinConnectTimeout: 20 * time.Second,
+	}
+
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithKeepaliveParams(keepalivePolicy))
+	opts = append(opts, grpc.WithConnectParams(connectParameters))
 
 	return opts
 }
