@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TestStartJobs tests the creation of a jobs. It tests the scenario when the command can be found and executed or not
 func TestStartJobs(t *testing.T) {
 	manager, err := job.NewManager()
 	if err != nil {
@@ -109,7 +110,9 @@ func TestStartJobs(t *testing.T) {
 	}
 }
 
-func TestGetJobStatus(t *testing.T) {
+// TestGetShortJobStatus tests status verification of short-running command. It will polling until the job exited normally and examined it status.
+// The test fails when the job status of an exited job is not corresponding to the prediction.
+func TestGetShortJobStatus(t *testing.T) {
 	manager, err := job.NewManager()
 	if err != nil {
 		t.Fatal(err)
@@ -128,16 +131,23 @@ func TestGetJobStatus(t *testing.T) {
 			return err
 		}
 
-		time.Sleep(time.Second)
+		var st *proto.JobStatus
 
-		j, ok := manager.GetJob(jobID)
-		if !ok {
-			return status.Errorf(codes.NotFound, "Job not found")
+		for i := 1; i < 100; i++ {
+			time.Sleep(10 * time.Millisecond)
+			j, ok := manager.GetJob(jobID)
+			if !ok {
+				return status.Errorf(codes.NotFound, "Job not found")
+			}
+
+			st = j.Status()
+			if st.Status.State != proto.ProcessState_RUNNING {
+				break
+			}
 		}
 
-		status := j.Status()
-		if (status.Status.State != expectedStatus.State) || (status.Status.ExitCode != expectedStatus.ExitCode) {
-			t.Errorf("Status is %v, when expected %v", status, expectedStatus)
+		if st == nil || (st.Status.State != expectedStatus.State) || (st.Status.ExitCode != expectedStatus.ExitCode) {
+			t.Errorf("Status is %v, when expected %v", st, expectedStatus)
 		}
 
 		return nil
@@ -201,16 +211,6 @@ func TestGetJobStatus(t *testing.T) {
 			codes.OK,
 		},
 		{
-			"long running",
-			"top",
-			[]string{"-b"},
-			&proto.ProcessStatus{
-				State:    proto.ProcessState_RUNNING,
-				ExitCode: -1,
-			},
-			codes.OK,
-		},
-		{
 			"High privilege",
 			"apt",
 			[]string{"update"},
@@ -249,6 +249,101 @@ func TestGetJobStatus(t *testing.T) {
 	}
 }
 
+// TestGetLongJobStatus tests status verification of long-running command. It will polling to see if the jon is still running.
+// The test fails when a job is not running when it was predicted
+func TestGetLongJobStatus(t *testing.T) {
+	manager, err := job.NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer t.Cleanup(func() {
+		if err := manager.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// checker
+	checkStatusJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
+		jobID, err := manager.CreateJob(cmd, args, "test user")
+		if err != nil {
+			return err
+		}
+
+		j, ok := manager.GetJob(jobID)
+		if !ok {
+			return status.Errorf(codes.NotFound, "Job not found")
+		}
+
+		for i := 1; i < 100; i++ {
+			time.Sleep(10 * time.Millisecond)
+			st := j.Status()
+			if (st.Status.State != expectedStatus.State) || (st.Status.ExitCode != expectedStatus.ExitCode) {
+				t.Errorf("Status is %v, when expected %v", st, expectedStatus)
+			}
+		}
+
+		return nil
+	}
+
+	testcases := []struct {
+		name          string
+		cmd           string
+		args          []string
+		expectStat    *proto.ProcessStatus
+		expectErrCode codes.Code
+	}{
+		{
+			"long running",
+			"top",
+			[]string{"-b"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+		{
+			"tail f",
+			"tail",
+			[]string{"-f", "/dev/null"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+		{
+			"mask signals",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+	}
+
+	for _, testCase := range testcases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			err := checkStatusJob(testCase.cmd, testCase.args, testCase.expectStat)
+
+			if err != nil {
+				s := status.Convert(err)
+				if s.Code() != testCase.expectErrCode {
+					t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, s.Code(), testCase.expectErrCode)
+				}
+			} else if testCase.expectErrCode != codes.OK {
+				t.Errorf("Test case %s with input %s returns no error, while %v error is expected", testCase.name, testCase.cmd, testCase.expectErrCode)
+			}
+		})
+	}
+}
+
+// TestStopJob tests the request to stop a job and their exit status. The test will verify the error code returned by the request,
+// as well as the exit status of the job
 func TestStopJob(t *testing.T) {
 	manager, err := job.NewManager()
 	if err != nil {
@@ -435,6 +530,7 @@ func TestStopJob(t *testing.T) {
 	}
 }
 
+// randomString generate a random string contains only alphabet-numerica characters
 func randomString(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
