@@ -91,7 +91,7 @@ type LogReceiver struct {
 	latestSequence int32
 }
 
-// reset resets the stream connection
+// reset resets client connection and request a new stream start from the current sequence
 func (receiver *LogReceiver) reset() error {
 	receiver.cli.connection.ResetConnectBackoff()
 
@@ -105,7 +105,9 @@ func (receiver *LogReceiver) reset() error {
 	return err
 }
 
-// Read reads the next log entry
+// Read reads the next log entry. Read implement connection backoff to handle connection error.
+// When a connection error occurs, the client will try to reset the connection and resume the stream instead of restart from the beginning.
+// The maximum retry period is 1 minute. After 1 minute, if the connection is still not fixed, Read returns the corresponding connection error.
 func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 	line = nil
 	const maxBackoff = time.Minute
@@ -153,7 +155,7 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 	return line, err
 }
 
-// clientDialOptions returns the gRPC configuration of the connection
+// clientDialOptions returns the gRPC configurations of the connection
 func clientDialOptions() []grpc.DialOption {
 	opts := make([]grpc.DialOption, 0)
 

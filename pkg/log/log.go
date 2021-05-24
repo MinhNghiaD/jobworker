@@ -109,7 +109,12 @@ func (manager *LogsManager) Cleanup() error {
 	return nil
 }
 
-// EventHook is a hook designed for listening log event
+// EventHook is a hook designed for listening log event.
+// EventHook is added to the logger in order to receive the notification when a new log entry is written.
+// The connection between logger and hook is protected by the built-in mutex of logrus.
+// In the event of new log entry is written, EventHook records the offset and the length of this entry in the log file.
+// This allow us to perfrom fast seek while reading file. With this lookup, Reader can treat the log file as a buffer.
+// EventHook is also treated as a event hub, where Reader can subscribe and receive a broadcast of file writting event.
 type EventHook struct {
 	// Map subscriber-channel, we will send true to the channel in the event of a write, and false in the event of log closing
 	subscribers map[string](chan bool)
