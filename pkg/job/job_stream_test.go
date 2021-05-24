@@ -42,7 +42,6 @@ func TestStreamLog(t *testing.T) {
 		var wg sync.WaitGroup
 		for i := 0; i < len(logResults); i++ {
 			wg.Add(1)
-
 			go func(index int) {
 				defer wg.Done()
 				ctx, cancel := context.WithCancel(context.Background())
@@ -58,8 +57,8 @@ func TestStreamLog(t *testing.T) {
 			}(i)
 		}
 
-		// Let the jobs run for 10 seconds to collect enough logs
-		time.Sleep(10 * time.Second)
+		// Let the jobs run for 5 seconds to collect enough logs
+		time.Sleep(5 * time.Second)
 
 		if err = j.Stop(forceStop); err != nil && status.Convert(err).Code() != codes.AlreadyExists {
 			t.Error(err)
@@ -133,17 +132,17 @@ func checkResults(t *testing.T, results []([]string)) {
 
 	for i := 1; i < len(results); i++ {
 		wg.Add(1)
-
 		go func(i int) {
 			defer wg.Done()
-
 			if len(template) != len(results[i]) {
 				t.Errorf("Results' size are different")
+				return
 			}
 
 			for index, line := range results[i] {
 				if !reflect.DeepEqual(template[index], line) {
 					t.Errorf("Results's contents mismatch, %s != %s", template[index], line)
+					return
 				}
 			}
 		}(i)

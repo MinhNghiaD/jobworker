@@ -95,14 +95,12 @@ type LogReceiver struct {
 func (receiver *LogReceiver) reset() error {
 	receiver.cli.connection.ResetConnectBackoff()
 
-	request := &proto.StreamRequest{
+	var err error
+	receiver.stream, err = receiver.cli.stub.StreamLog(receiver.ctx, &proto.StreamRequest{
 		Job: receiver.job,
 		// point the start point to the next sequence
 		StartPoint: receiver.latestSequence + 1,
-	}
-
-	var err error
-	receiver.stream, err = receiver.cli.stub.StreamLog(receiver.ctx, request)
+	})
 
 	return err
 }
@@ -113,7 +111,7 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 	const maxBackoff = time.Minute
 	currentBackoff := time.Second
 
-	// Attemp to read a log entry, with a retry period of maxBackoff
+	// Attempt to read a log entry, with a retry period of maxBackoff
 	for line == nil && currentBackoff < maxBackoff {
 		if receiver.stream != nil {
 			line, err = receiver.stream.Recv()
@@ -132,9 +130,8 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 				// Clearing the stream will force the client to resubscribe on next iteration
 				receiver.stream = nil
 			} else {
-				// Update the sequence number and reset the backoff interval
+				// Update the sequence number
 				receiver.latestSequence = line.NbSequence
-				currentBackoff = time.Second
 				break
 			}
 		}

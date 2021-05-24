@@ -158,6 +158,7 @@ func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 	}
 
 	hook.subscribers[id] = make(chan bool, 100)
+	logrus.Infof("Add subscribe %s", id)
 
 	if hook.isClosed {
 		// Send true to channel to flush out the read before closing
@@ -165,7 +166,6 @@ func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 		hook.subscribers[id] <- false
 	}
 
-	logrus.Infof("Add subscribe %s", id)
 	return hook.subscribers[id], nil
 }
 

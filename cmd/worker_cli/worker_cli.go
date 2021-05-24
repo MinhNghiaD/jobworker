@@ -33,7 +33,7 @@ var (
 	query      = kingpin.Command("query", "Query status of a job on worker service.")
 	queriedJob = query.Flag("job", "job id").Default("").String()
 
-	// TODO: add Stream subcommand
+	// Stream subcommand and its flags
 	stream    = kingpin.Command("stream", "Stream log of a job on worker service.")
 	streamJob = stream.Flag("job", "job id").Default("").String()
 )
@@ -163,7 +163,7 @@ func streamLog(c *client.Client, jobID string) {
 	logrus.SetLevel(logrus.DebugLevel)
 	if c == nil {
 		logrus.Error("Client is not initiated")
-		return
+		logrus.Exit(1)
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -200,6 +200,8 @@ func streamLog(c *client.Client, jobID string) {
 			}
 		}
 	}
+
+	logrus.Exit(1)
 }
 
 // printJobStatus displays the job status

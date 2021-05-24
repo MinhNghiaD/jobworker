@@ -21,12 +21,14 @@ func TestLogRead(t *testing.T) {
 
 		if len(hook.Entries) != len(readText) {
 			t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
+			return
 		}
 
 		for i, line := range readText {
 			entry, err := hook.Entries[i].String()
 			if err != nil {
 				t.Errorf("Fail to get log entry, %s", err)
+				return
 			}
 
 			if !reflect.DeepEqual(entry, line) {
@@ -70,7 +72,6 @@ func TestReadWriteParallel(t *testing.T) {
 		go testWrite(t, logger)
 
 		var wg sync.WaitGroup
-
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
@@ -82,12 +83,14 @@ func TestReadWriteParallel(t *testing.T) {
 
 				if len(hook.Entries) != len(readText) {
 					t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
+					return
 				}
 
 				for i, line := range readText {
 					entry, err := hook.Entries[i].String()
 					if err != nil {
 						t.Errorf("Fail to get log entry, %s", err)
+						return
 					}
 
 					if !reflect.DeepEqual(entry, line) {

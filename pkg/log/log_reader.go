@@ -61,7 +61,6 @@ func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader
 // ReadLine reads the next line in the log file. If the logging is finished or the reading is cancel by its context, ReadLine will return with an error
 func (reader *ReaderImpl) ReadLine() (string, error) {
 	bytes, err := reader.buffer.ReadBytes('\n')
-
 	if err != nil && err != io.EOF {
 		return "", err
 	}
