@@ -105,7 +105,7 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	if err != nil {
 		s := status.Convert(err)
-		logrus.Errorf("Fail to stop jo, code %s, description %s", s.Code(), s.Message())
+		logrus.Errorf("Fail to stop job, code %s, description %s", s.Code(), s.Message())
 
 		for _, d := range s.Details() {
 			switch info := d.(type) {
