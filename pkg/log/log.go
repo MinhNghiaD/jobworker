@@ -12,14 +12,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Logger wraps of logrus logging into a file
+// Logger wraps of logrus logging into a file.
+// Logger also includes the EventHook that attached to the Logger in order to receive file event.
 type Logger struct {
 	file  *os.File
 	Entry *logrus.Entry
 	hook  *EventHook
 }
 
-// Close closes loggers and its log file
+// Close closes loggers and its log file.
+// It also close the EventHook which results in the EOF notification to all its subscribers
 func (logger *Logger) Close() error {
 	if err := logger.file.Sync(); err != nil {
 		logrus.Errorf("Fail to sync file %s, error: %s", logger.file.Name(), err)
@@ -32,12 +34,13 @@ func (logger *Logger) Close() error {
 	}
 
 	logger.hook.close()
-
 	logrus.Debugf("Close logger %s", logger.file.Name())
+
 	return nil
 }
 
-// NewReader returns a new log reader that can read this log file
+// NewReader returns a new log reader that can read this log file. This reader is a subscriber of the EventHook.
+// It gains access to line offset lookup and file event notification.
 func (logger *Logger) NewReader(ctx context.Context) (Reader, error) {
 	return newLogReader(ctx, logger.file.Name(), logger.hook)
 }
@@ -47,7 +50,8 @@ type LogsManager struct {
 	logsDir string
 }
 
-// NewManager creates a new logs manager with a temporary log directory
+// NewManager creates a new logs manager with a temporary log directory.
+// It is the access point to internal logging of job worker service.
 func NewManager() (*LogsManager, error) {
 	// TODO use config file to configure logs directory
 	logsDir, err := os.MkdirTemp("", "worker-logs-*")
@@ -62,7 +66,7 @@ func NewManager() (*LogsManager, error) {
 	}, nil
 }
 
-// NewLogger creates a new logger with a log file named after the ID, in the logs directory
+// NewLogger creates a new logger with a log file named after the ID, in the logs directory.
 func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	if len(ID) == 0 {
 		return nil, fmt.Errorf("ID cannot be empty")
@@ -76,7 +80,6 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 	// Create write only log file.
 	file, err := os.OpenFile(fileName, (os.O_CREATE | os.O_APPEND | os.O_WRONLY), 0644)
 	if err != nil {
-		// Cannot open log file.
 		return nil, err
 	}
 
@@ -87,7 +90,7 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 		Level:     logrus.InfoLevel,
 	}
 
-	// Create event hook to receive file event from logger
+	// Create event hook to receive file event from logger.
 	eventHook := &EventHook{
 		subscribers: make(map[string]chan bool),
 		lineOffset:  make([]*EntryOffset, 0, 1024),
@@ -117,7 +120,7 @@ func (manager *LogsManager) Cleanup() error {
 // The connection between logger and hook is protected by the built-in mutex of logrus.
 // In the event of new log entry is written, EventHook records the offset and the length of this entry in the log file.
 // This allow us to perfrom fast seek while reading file. With this lookup, Reader can treat the log file as a buffer.
-// EventHook is also treated as a event hub, where Reader can subscribe and receive a broadcast of file writting event.
+// EventHook is also treated as a event hub, where Reader can subscribe and receive a broadcast of file writing event.
 type EventHook struct {
 	// Map subscriber-channel, we will send true to the channel in the event of a write, and false in the event of log closing
 	subscribers map[string](chan bool)
@@ -147,6 +150,7 @@ func (hook *EventHook) Fire(e *logrus.Entry) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		// Index entry offset in the file
 		defer wg.Done()
 		hook.offsetMutex.Lock()
 		hook.lineOffset = append(hook.lineOffset, &EntryOffset{hook.nextLinePos, len(s)})
@@ -154,6 +158,7 @@ func (hook *EventHook) Fire(e *logrus.Entry) error {
 		hook.offsetMutex.Unlock()
 	}()
 
+	// Broadcast event to the subscribers
 	for _, sub := range hook.subscribers {
 		wg.Add(1)
 		go func(sub chan bool) {
@@ -176,6 +181,9 @@ func (hook *EventHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
+// lookupEntry allows subscribers to perform log entry lookup.
+// If the entry at the index is already written to the file, lookupEntry returns the offset and the size of this entry in the log file.
+// If the entry hasn't been written, lookupEntry returns an EOF error.
 func (hook *EventHook) lookupEntry(index int) (*EntryOffset, error) {
 	hook.offsetMutex.RLock()
 	defer hook.offsetMutex.RUnlock()
@@ -188,6 +196,8 @@ func (hook *EventHook) lookupEntry(index int) (*EntryOffset, error) {
 }
 
 // subscribe add a subscriber and gives it an event channel to receive file event
+// The subscriber can then receive the file notification from this channel.
+// A true value indicate a log entry is written, a false value mean that en file is close and there is no more data to read.
 func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 	hook.eventMutex.Lock()
 	defer hook.eventMutex.Unlock()
@@ -208,7 +218,7 @@ func (hook *EventHook) subscribe(id string) (<-chan bool, error) {
 	return hook.subscribers[id], nil
 }
 
-// unsubscribe removes a subscriber and close its channel
+// unsubscribe removes a subscriber and close its channel.
 func (hook *EventHook) unsubscribe(id string) error {
 	hook.eventMutex.Lock()
 	defer hook.eventMutex.Unlock()
@@ -224,7 +234,8 @@ func (hook *EventHook) unsubscribe(id string) error {
 	return nil
 }
 
-// close closes the event hook and informs all its subscribers that the logger has stopped writing
+// close closes the event hook and informs all its subscribers that the logger has stopped writing.
+// Before notifying the closing of the file, we send a last write event to the channel to trigger the last read from the subscriber.
 func (hook *EventHook) close() {
 	hook.eventMutex.Lock()
 	defer hook.eventMutex.Unlock()
@@ -244,6 +255,7 @@ func (hook *EventHook) close() {
 	wg.Wait()
 }
 
+// EntryOffset encapsulates the offset of the log entry in the file, as well as it length.
 type EntryOffset struct {
 	offset int64
 	size   int

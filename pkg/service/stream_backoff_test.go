@@ -31,7 +31,7 @@ func TestStreamBackoff(t *testing.T) {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
-	// start a job that count from 0 then use it to compare the sequence received by the stream receiver
+	// start a job that count from 0 to 1000 then use it to compare the sequence received by the stream receiver
 	command := &proto.Command{
 		Cmd:  "bash",
 		Args: []string{"-c", "for i in `seq 0 1000`; do echo $i; sleep 0.01; done"},

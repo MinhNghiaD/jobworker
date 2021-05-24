@@ -18,7 +18,6 @@ func TestLogRead(t *testing.T) {
 		defer cancel()
 
 		readText := testRead(ctx, t, logger)
-
 		if len(hook.Entries) != len(readText) {
 			t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
 			return
@@ -81,7 +80,6 @@ func TestReadWriteParallel(t *testing.T) {
 				defer cancel()
 
 				readText := testRead(ctx, t, logger)
-
 				if len(hook.Entries) != len(readText) {
 					t.Errorf("Read content missing %d != %d", len(hook.Entries), len(readText))
 					return

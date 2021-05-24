@@ -45,7 +45,9 @@ func newLogReader(ctx context.Context, fileName string, hook *EventHook) (Reader
 	}, nil
 }
 
-// ReadAt reads line at a given index in the log file
+// ReadAt reads line at a given index in the log file.
+// If the index is out of range, ReadAt will wait until the entry of this index is written.
+// If there is no more log be written and the index is still out of range, ReadAt return an EOF error.
 func (reader *ReaderImpl) ReadAt(index int) (string, error) {
 	file, err := os.Open(reader.fileName)
 	if err != nil {
@@ -86,12 +88,12 @@ func (reader *ReaderImpl) ReadAt(index int) (string, error) {
 	return string(data), err
 }
 
-// Close closes the reader and freeup its resources
+// Close closes the reader and unsubscribe its from the EventHook, closing its event channel.
 func (reader *ReaderImpl) Close() error {
 	return reader.hook.unsubscribe(reader.id)
 }
 
-// wait waits for the log file is available to continue reading
+// wait waits for the log file is available to continue reading or the read is cancelled.
 func (reader *ReaderImpl) wait() error {
 	for {
 		select {

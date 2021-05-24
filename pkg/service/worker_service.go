@@ -37,7 +37,7 @@ func newWorkerService() (*WorkerService, error) {
 	}, nil
 }
 
-// StartJob starts a job corresponding to user request
+// StartJob starts a job corresponding to user request. It returns an error in case the internal service is not ready or the command is invalid
 func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
 	if service.jobsManager == nil {
 		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
@@ -54,7 +54,8 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 	}, nil
 }
 
-// StopJob terminates a job specified by user request
+// StopJob terminates a job specified by user request.
+// It returns an error when the internal service is not ready, the job id is not valid or the stop is failed to stop
 func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	if service.jobsManager == nil {
 		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
@@ -81,7 +82,7 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 	return j.Status(), nil
 }
 
-// QueryJob returns the status of a job
+// QueryJob returns the status of a job. It returns an error in case the internal service is not ready or the job id is not valid
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	if service.jobsManager == nil {
 		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
@@ -109,7 +110,9 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 // This solution is simple but it can easily overload the server.
 // TODO: A better approach is to use bi-directional streaming implement digestion control to negotiate the data flow in ASYNC mode
 
-// StreamLog maintains a stream of job logs specified by user
+// StreamLog maintains a stream of job logs specified by user.
+// It receives user request, which indicates the job that they want to retrieve the log, and the nb of sequence that the stream should start from.
+// The starting point is typically used for connection backoff
 func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream proto.WorkerService_StreamLogServer) error {
 	if service.jobsManager == nil {
 		return status.Errorf(codes.Unavailable, "Job Managers is not ready")

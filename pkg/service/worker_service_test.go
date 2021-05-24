@@ -781,6 +781,7 @@ func readLog(t *testing.T, receiver *client.LogReceiver) []*proto.Log {
 	return readText
 }
 
+// checkResults verify if the logs received by different stream is the same
 func checkResults(t *testing.T, results []([]*proto.Log)) {
 	if results == nil {
 		t.Errorf("No result recorded")

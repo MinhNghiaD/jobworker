@@ -20,5 +20,7 @@ func main() {
 	}
 
 	defer server.Close()
-	server.Serve()
+	if err := server.Serve(); err != nil {
+		logrus.Fatal(err)
+	}
 }

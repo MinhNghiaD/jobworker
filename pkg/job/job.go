@@ -58,7 +58,7 @@ func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job,
 	}, nil
 }
 
-// Start runs job in the background
+// Start runs job in the background. It returns an error incase the command associated with its cannot be executed.
 func (j *Impl) Start() error {
 	// IO Mapping
 	stdoutLog := j.logger.Entry.WithField("source", "stdout").Writer()
@@ -117,7 +117,8 @@ func (j *Impl) Start() error {
 	return nil
 }
 
-// Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
+// Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM.
+// If the job takes too long to stop, which can be an internal error or signal masking, Stop will return with a Timeout error.
 func (j *Impl) Stop(force bool) error {
 	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
 		badRequest := &errdetails.BadRequest{
@@ -195,7 +196,7 @@ func (j *Impl) Stop(force bool) error {
 	return nil
 }
 
-// Status queries the current statis of the job
+// Status queries the current status of the job
 func (j *Impl) Status() *proto.JobStatus {
 	state := j.getState()
 	pid := -1
