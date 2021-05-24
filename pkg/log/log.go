@@ -56,8 +56,9 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 		return nil, fmt.Errorf("ID cannot be empty")
 	}
 
-	formatter := new(logrus.JSONFormatter)
-	formatter.TimestampFormat = "02-25-2001 15:04:05"
+	formatter := &logrus.JSONFormatter{
+		TimestampFormat: "02-01-2006 15:04:05",
+	}
 
 	fileName := filepath.Join(manager.logsDir, fmt.Sprintf("%s.log", ID))
 
