@@ -16,11 +16,6 @@ type Logger struct {
 
 // Close closes loggers and its log file
 func (logger *Logger) Close() error {
-	if err := logger.file.Sync(); err != nil {
-		logrus.Errorf("Fail to sync file %s, error: %s", logger.file.Name(), err)
-		return err
-	}
-
 	if err := logger.file.Close(); err != nil {
 		logrus.Errorf("Fail to close file %s, error: %s", logger.file.Name(), err)
 		return err
