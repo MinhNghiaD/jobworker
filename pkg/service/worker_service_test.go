@@ -18,6 +18,7 @@ import (
 
 // NOTE we won't use context timeout for grpc testing because the respond time in test is not fast enough
 
+// TestStartJobs tests the creation of a jobs via grpc unary request
 func TestStartJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {
@@ -123,7 +124,9 @@ func TestStartJobs(t *testing.T) {
 	}
 }
 
-func TestQueryJobs(t *testing.T) {
+// TestQueryShortJob tests status verification of short-running command. It will polling until the job exited normally and examined it status.
+// The test fails when the job status of an exited job is not corresponding to the prediction.
+func TestQueryShortJob(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
@@ -154,11 +157,18 @@ func TestQueryJobs(t *testing.T) {
 		}
 
 		logrus.Infof("Started job %s", job)
-		time.Sleep(time.Second)
 
-		jobStatus, err := client.QueryJob(context.Background(), job)
-		if err != nil {
-			return err
+		var jobStatus *proto.JobStatus
+		for i := 0; i < 100; i++ {
+			time.Sleep(10 * time.Millisecond)
+			jobStatus, err = client.QueryJob(context.Background(), job)
+			if err != nil {
+				return err
+			}
+
+			if jobStatus.Status.State != proto.ProcessState_RUNNING {
+				break
+			}
 		}
 
 		if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
@@ -226,16 +236,6 @@ func TestQueryJobs(t *testing.T) {
 			codes.OK,
 		},
 		{
-			"long running",
-			"top",
-			[]string{"-b"},
-			&proto.ProcessStatus{
-				State:    proto.ProcessState_RUNNING,
-				ExitCode: -1,
-			},
-			codes.OK,
-		},
-		{
 			"High privilege",
 			"apt",
 			[]string{"update"},
@@ -274,6 +274,113 @@ func TestQueryJobs(t *testing.T) {
 	}
 }
 
+// TestQueryLongJob tests status verification of long-running command. It will polling to see if the jon is still running.
+// The test fails when a job is not running when it was predicted
+func TestQueryLongJob(t *testing.T) {
+	server, err := service.NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go server.Serve()
+
+	client, err := client.New("127.0.0.1:7777")
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	defer t.Cleanup(func() {
+		server.Close()
+		client.Close()
+	})
+
+	// checker
+	checkQueryJob := func(cmd string, args []string, expectedStatus *proto.ProcessStatus) error {
+		command := &proto.Command{
+			Cmd:  cmd,
+			Args: args,
+		}
+
+		job, err := client.StartJob(context.Background(), command)
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Started job %s", job)
+
+		for i := 1; i < 100; i++ {
+			time.Sleep(10 * time.Millisecond)
+			jobStatus, err := client.QueryJob(context.Background(), job)
+			if err != nil {
+				return err
+			}
+
+			if (jobStatus.Status.State != expectedStatus.State) || (jobStatus.Status.ExitCode != expectedStatus.ExitCode) {
+				t.Errorf("Status is %v, when expected %v", jobStatus, expectedStatus)
+			}
+		}
+
+		return nil
+	}
+
+	testcases := []struct {
+		name          string
+		cmd           string
+		args          []string
+		expectStat    *proto.ProcessStatus
+		expectErrCode codes.Code
+	}{
+		{
+			"long running",
+			"top",
+			[]string{"-b"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+		{
+			"tail f",
+			"tail",
+			[]string{"-f", "/dev/null"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+		{
+			"mask signals",
+			"bash",
+			[]string{"-c", "trap -- '' SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"},
+			&proto.ProcessStatus{
+				State:    proto.ProcessState_RUNNING,
+				ExitCode: -1,
+			},
+			codes.OK,
+		},
+	}
+
+	for _, testCase := range testcases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			err := checkQueryJob(testCase.cmd, testCase.args, testCase.expectStat)
+
+			if err != nil {
+				s := status.Convert(err)
+				if s.Code() != testCase.expectErrCode {
+					t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.cmd, s.Code(), testCase.expectErrCode)
+				}
+			} else if testCase.expectErrCode != codes.OK {
+				t.Errorf("Test case %s with input %s returns no error, while %v error is expected", testCase.name, testCase.cmd, testCase.expectErrCode)
+			}
+		})
+	}
+}
+
+// TestStopJobs tests the request to stop a job and query their exit status via grpc unary request.
+// The test will verify the error code returned by the request, as well as the exit status of the job
 func TestStopJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {
@@ -466,6 +573,7 @@ func TestStopJobs(t *testing.T) {
 	}
 }
 
+// TestRequestBadJobs tests some of common unhappy cases, where the requests have bad arguments to be processed
 func TestRequestBadJobs(t *testing.T) {
 	server, err := service.NewServer(7777)
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestCreateLogFiles tests the creation of temporary log directory and log files
 func TestCreateLogFiles(t *testing.T) {
 	logsManager, err := NewManager()
 	if err != nil {
@@ -66,7 +67,6 @@ func TestCreateLogFiles(t *testing.T) {
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
 			logger, err := logsManager.NewLogger(testCase.input)
-
 			if (err != nil) != (testCase.expectErr) {
 				t.Errorf("Test case %s with input %s returns error %v, while %v error is expected", testCase.name, testCase.input, err, testCase.expectErr)
 				return
@@ -95,6 +95,7 @@ func TestCreateLogFiles(t *testing.T) {
 	})
 }
 
+// TestWriteLogs tests the writing to log files by checking the content written with the original message
 func TestWriteLogs(t *testing.T) {
 	logsManager, err := NewManager()
 
@@ -151,14 +152,12 @@ func TestWriteLogs(t *testing.T) {
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
 			logger, err := logsManager.NewLogger(uuid.New().String())
-
 			if err != nil {
 				t.Errorf("Fail to create logger")
 				return
 			}
 
 			messages := make([]string, 0, 10)
-
 			for i := 0; i < 10; i++ {
 				messages = append(messages, randomString(100))
 			}

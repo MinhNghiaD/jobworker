@@ -13,7 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TestSimulation runs simulation of user requests to the worker service.
+// It enable an observation to scan the functionalities as a whole,
+// rather than focus on the detail functionalities, which are covered in other independent tests.
+// Data race, Goroutine leak, deadlock and system crash can be detected by this test
 func TestSimulation(t *testing.T) {
+	rand.Seed(1420)
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)

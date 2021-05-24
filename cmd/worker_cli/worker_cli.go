@@ -63,7 +63,7 @@ func main() {
 func startJob(c *client.Client, cmd string, args []string) {
 	if c == nil {
 		logrus.Error("Client is not initiated")
-		return
+		logrus.Exit(1)
 	}
 
 	command := &proto.Command{
@@ -87,7 +87,7 @@ func startJob(c *client.Client, cmd string, args []string) {
 				logrus.Errorf("Unexpected error: %s", info)
 			}
 		}
-		return
+		logrus.Exit(1)
 	}
 
 	fmt.Printf("Start job successfully, job ID: %s\n", j.Id)
@@ -97,7 +97,7 @@ func startJob(c *client.Client, cmd string, args []string) {
 func stopJob(c *client.Client, jobID string, force bool) {
 	if c == nil {
 		logrus.Error("Client is not initiated")
-		return
+		logrus.Exit(1)
 	}
 
 	request := &proto.StopRequest{
@@ -111,7 +111,7 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	if err != nil {
 		s := status.Convert(err)
-		logrus.Errorf("Fail to stop jo, code %s, description %s", s.Code(), s.Message())
+		logrus.Errorf("Fail to stop job, code %s, description %s", s.Code(), s.Message())
 
 		for _, d := range s.Details() {
 			switch info := d.(type) {
@@ -121,7 +121,8 @@ func stopJob(c *client.Client, jobID string, force bool) {
 				logrus.Errorf("Unexpected error: %s", info)
 			}
 		}
-		return
+
+		logrus.Exit(1)
 	}
 
 	printJobStatus(st)
@@ -131,7 +132,7 @@ func stopJob(c *client.Client, jobID string, force bool) {
 func queryJob(c *client.Client, jobID string) {
 	if c == nil {
 		logrus.Error("Client is not initiated")
-		return
+		logrus.Exit(1)
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
@@ -150,7 +151,8 @@ func queryJob(c *client.Client, jobID string) {
 				logrus.Errorf("Unexpected error: %s", info)
 			}
 		}
-		return
+
+		logrus.Exit(1)
 	}
 
 	printJobStatus(st)

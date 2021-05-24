@@ -10,7 +10,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TestConcurrency runs random access requests to the job manager in order to simulate a scenario that data race is more likely to occur.
+// This test is aim for data race scan, deadlock and goroutine leak detection.
 func TestConcurrency(t *testing.T) {
+	rand.Seed(1420)
 	manager, err := job.NewManager()
 
 	if err != nil {
@@ -81,7 +84,6 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-
 	// Simulate client random access
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
