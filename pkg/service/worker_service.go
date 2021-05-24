@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/status"
 )
 
 // WorkerService is the gRPC Service of Worker
@@ -36,10 +35,6 @@ func newWorkerService() (*WorkerService, error) {
 
 // StartJob starts a job corresponding to user request
 func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	// TODO Get Owner common name from certificate
 	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
@@ -53,10 +48,6 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 
 // StopJob terminates a job specified by user request
 func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	j, ok := service.jobsManager.GetJob(request.Job.Id)
 	if !ok {
 		badRequest := &errdetails.BadRequest{
@@ -80,10 +71,6 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 
 // QueryJob returns the status of a job
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	// TODO Get Owner common name from certificate
 	j, ok := service.jobsManager.GetJob(protoJob.Id)
 	if !ok {
@@ -102,19 +89,8 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 	return j.Status(), nil
 }
 
-// StreamLog maintains a stream of job logs specified by user
-/*
-func (service *WorkerService) StreamLog(job *proto.Job, stream proto.WorkerService_StreamLogServer) error {
-	return fmt.Errorf("Unimplemented")
-}
-*/
-
 // Cleanup cleanups the service
 func (service *WorkerService) Cleanup() error {
-	if service.jobsManager == nil {
-		return fmt.Errorf("Job Managers is not initiated")
-	}
-
 	return service.jobsManager.Cleanup()
 }
 

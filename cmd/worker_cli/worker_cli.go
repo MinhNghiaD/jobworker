@@ -50,16 +50,13 @@ func main() {
 		stopJob(cli, *stoppingJob, *stopForce)
 	case query.FullCommand():
 		queryJob(cli, *queriedJob)
+	default:
+		logrus.Warning("Unknown subcommand")
 	}
 }
 
 // startJob using the gRPC client to start a job with the correspodning command on the server
 func startJob(c *client.Client, cmd string, args []string) {
-	if c == nil {
-		logrus.Error("Client is not initiated")
-		logrus.Exit(1)
-	}
-
 	command := &proto.Command{
 		Cmd:  cmd,
 		Args: args,
@@ -70,17 +67,7 @@ func startJob(c *client.Client, cmd string, args []string) {
 
 	j, err := c.StartJob(ctx, command)
 	if err != nil {
-		s := status.Convert(err)
-		logrus.Errorf("Fail to start job, code %s, description %s", s.Code(), s.Message())
-
-		for _, d := range s.Details() {
-			switch info := d.(type) {
-			case *errdetails.QuotaFailure:
-				logrus.Errorf("Quota failure: %s", info)
-			default:
-				logrus.Errorf("Unexpected error: %s", info)
-			}
-		}
+		reportError(err)
 		logrus.Exit(1)
 	}
 
@@ -89,11 +76,6 @@ func startJob(c *client.Client, cmd string, args []string) {
 
 // stopJob stops the corresponding job with force option
 func stopJob(c *client.Client, jobID string, force bool) {
-	if c == nil {
-		logrus.Error("Client is not initiated")
-		logrus.Exit(1)
-	}
-
 	request := &proto.StopRequest{
 		Job:   &proto.Job{Id: jobID},
 		Force: force,
@@ -104,18 +86,7 @@ func stopJob(c *client.Client, jobID string, force bool) {
 	st, err := c.StopJob(ctx, request)
 
 	if err != nil {
-		s := status.Convert(err)
-		logrus.Errorf("Fail to stop job, code %s, description %s", s.Code(), s.Message())
-
-		for _, d := range s.Details() {
-			switch info := d.(type) {
-			case *errdetails.QuotaFailure:
-				logrus.Errorf("Quota failure: %s", info)
-			default:
-				logrus.Errorf("Unexpected error: %s", info)
-			}
-		}
-
+		reportError(err)
 		logrus.Exit(1)
 	}
 
@@ -124,28 +95,12 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 // queryJob queries the status of a job specified by jobID
 func queryJob(c *client.Client, jobID string) {
-	if c == nil {
-		logrus.Error("Client is not initiated")
-		logrus.Exit(1)
-	}
-
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 
 	if err != nil {
-		s := status.Convert(err)
-		logrus.Errorf("Fail to query job, code %s, description %s", s.Code(), s.Message())
-
-		for _, d := range s.Details() {
-			switch info := d.(type) {
-			case *errdetails.QuotaFailure:
-				logrus.Errorf("Quota failure: %s", info)
-			default:
-				logrus.Errorf("Unexpected error: %s", info)
-			}
-		}
-
+		reportError(err)
 		logrus.Exit(1)
 	}
 
@@ -161,4 +116,18 @@ func printJobStatus(status *proto.JobStatus) {
 	fmt.Printf("\t\t - PID      : %d \n", status.GetStatus().Pid)
 	fmt.Printf("\t\t - State    : %v \n", status.GetStatus().State)
 	fmt.Printf("\t\t - Exit code: %d \n", status.GetStatus().ExitCode)
+}
+
+func reportError(err error) {
+	s := status.Convert(err)
+	logrus.Errorf("Fail to execute RPC, error code %s, description %s", s.Code(), s.Message())
+
+	for _, d := range s.Details() {
+		switch info := d.(type) {
+		case *errdetails.QuotaFailure:
+			logrus.Errorf("Quota failure: %s", info)
+		default:
+			logrus.Errorf("Unexpected error: %s", info)
+		}
+	}
 }
