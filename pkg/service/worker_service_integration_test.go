@@ -148,7 +148,7 @@ func TestSimulation(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			receiver, err := client.GetLogReceiver(ctx, &proto.Job{Id: jobIDs.RandomID()})
-			for err != nil {
+			for err == nil {
 				_, err = receiver.Read()
 			}
 		}()

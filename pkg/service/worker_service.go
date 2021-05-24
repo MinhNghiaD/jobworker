@@ -205,6 +205,7 @@ func (server *WorkerServer) Serve() error {
 
 // Close closes the listener and perform cleanup
 func (server *WorkerServer) Close() error {
+	server.grpcServer.GracefulStop()
 	err := server.listener.Close()
 	server.service.Cleanup()
 
