@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
 func TestVerifyCertificate(t *testing.T) {
 	connectionCheck := func(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) error {
 		server, err := service.NewServer(7777, serverTLSConfig)
@@ -28,18 +29,14 @@ func TestVerifyCertificate(t *testing.T) {
 			return err
 		}
 
-		command := &proto.Command{
+		defer cli.Close()
+
+		_, err = cli.StartJob(context.Background(), &proto.Command{
 			Cmd:  "ls",
 			Args: nil,
-		}
+		})
 
-		_, err = cli.StartJob(context.Background(), command)
-		if err != nil {
-			return err
-		}
-
-		cli.Close()
-		return nil
+		return err
 	}
 
 	testcases := []struct {
@@ -130,4 +127,71 @@ func TestVerifyCertificate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestVerifyProtocol verifies the mTLS configuration accept only TLS 1.3 as protocol
+func TestVerifyProtocol(t *testing.T) {
+	serverCert, err := auth.LoadCerts(
+		"../../assets/cert/server_cert.pem",
+		"../../assets/cert/server_key.pem",
+		[]string{"../../assets/cert/client_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	server, err := service.NewServer(7777, serverCert.ServerTLSConfig())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	go server.Serve()
+
+	cli1Cert, err := auth.LoadCerts(
+		"../../assets/cert/admin_cert.pem",
+		"../../assets/cert/admin_key.pem",
+		[]string{"../../assets/cert/server_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cli1, err := client.NewWithTLS("127.0.0.1:7777", &tls.Config{
+		Certificates: []tls.Certificate{*cli1Cert.Certificate},
+		RootCAs:      cli1Cert.CAPool,
+		MaxVersion:   tls.VersionTLS12,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = cli1.StartJob(context.Background(), &proto.Command{
+		Cmd:  "ls",
+		Args: nil,
+	})
+
+	if err == nil || status.Convert(err).Code() != codes.Unavailable {
+		t.Errorf("Error %s, while expected error code %v", err, codes.Unavailable)
+	}
+
+	cli2, err := client.NewWithInsecure("127.0.0.1:7777")
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = cli2.StartJob(context.Background(), &proto.Command{
+		Cmd:  "ls",
+		Args: nil,
+	})
+
+	if err == nil || status.Convert(err).Code() != codes.Unavailable {
+		t.Errorf("Error %s, while expected error code %v", err, codes.Unavailable)
+	}
+
+	t.Cleanup(func() {
+		server.Close()
+		cli1.Close()
+		cli1.Close()
+	})
 }
