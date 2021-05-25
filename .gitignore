@@ -59,5 +59,8 @@ cscope.*
 #Vendor
 /vendor
 
+#Certificates
+/assets/cert
+
 #Protobuf generated file
 *.pb.go

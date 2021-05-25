@@ -1,0 +1,20 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = localhost
+IP.1 = ::1
+IP.2 = 127.0.0.1
+
+[extensions]
+subjectAltName = dirName:dir_sect
+
+[dir_sect]
+C = FR
+O = Client
+OU = Impostor
+CN = Impostor 1
+
+

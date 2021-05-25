@@ -5,6 +5,7 @@ PROJECTNAME := $(shell basename "$(PWD)")
 # Go related variables.
 SOURCEDIR := "./cmd"
 BIN := "./bin"
+SCRIPT := "./scripts"
 SOURCES := $(shell find $(SOURCEDIR) ! -name "*_test.go" -name '*.go')
 PROTODIR := "./api/worker/proto"
 
@@ -56,3 +57,7 @@ lint-go:
 	golangci-lint run -c .golangci.yaml $(GO_LINT_FLAGS)
 
 lint: lint-go
+
+.PHONY: cert
+cert:
+	@-bash $(SCRIPT)/cert_gen.sh
