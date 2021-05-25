@@ -46,7 +46,7 @@ type Impl struct {
 	exitChan   chan bool
 }
 
-// newJob creates a new job, associated with a unique ID and a Command, and the owner who requests its
+// newJob creates a new job, associated with a unique ID and a Command, and the owner who requests it
 func newJob(ID uuid.UUID, cmd *exec.Cmd, logger *log.Logger, owner string) (Job, error) {
 	return &Impl{
 		id:       ID,

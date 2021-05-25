@@ -23,7 +23,6 @@ type Client struct {
 // New creates a new Client to connect to server address specified in the parameters
 func New(address string) (*Client, error) {
 	dialOptions := clientDialOptions()
-
 	dialContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -32,11 +31,9 @@ func New(address string) (*Client, error) {
 		return nil, err
 	}
 
-	stub := proto.NewWorkerServiceClient(connection)
-
 	return &Client{
 		connection: connection,
-		stub:       stub,
+		stub:       proto.NewWorkerServiceClient(connection),
 	}, nil
 }
 
@@ -139,16 +136,16 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 		}
 
 		if receiver.stream == nil {
+			select {
+			case <-time.After(currentBackoff):
+				currentBackoff *= 2
+			case <-receiver.ctx.Done():
+				return nil, status.Error(codes.DeadlineExceeded, "Cancelled")
+			}
+
 			if e := receiver.reset(); e != nil {
 				logrus.Debugf("Fail to reset stream, %s", e)
 			}
-		}
-
-		select {
-		case <-time.After(currentBackoff):
-			currentBackoff *= 2
-		case <-receiver.ctx.Done():
-			return nil, status.Error(codes.DeadlineExceeded, "Cancelled")
 		}
 	}
 

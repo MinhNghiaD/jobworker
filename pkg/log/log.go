@@ -111,6 +111,12 @@ func (manager *LogsManager) Cleanup() error {
 	return nil
 }
 
+// EntryOffset encapsulates the offset of the log entry in the file, as well as it length.
+type EntryOffset struct {
+	offset int64
+	size   int
+}
+
 // EventHook is a hook designed for listening log event.
 // EventHook is added to the logger in order to receive the notification when a new log entry is written.
 // The connection between logger and hook is protected by the built-in mutex of logrus.
@@ -249,10 +255,4 @@ func (hook *EventHook) close() {
 		}(sub)
 	}
 	wg.Wait()
-}
-
-// EntryOffset encapsulates the offset of the log entry in the file, as well as it length.
-type EntryOffset struct {
-	offset int64
-	size   int
 }

@@ -74,7 +74,6 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	jobIDs := make([]string, 0)
-
 	for i := 0; i < 100; i++ {
 		for _, testCase := range testcases {
 			if jobID, err := manager.CreateJob(testCase.cmd, testCase.args, "test user"); err == nil {

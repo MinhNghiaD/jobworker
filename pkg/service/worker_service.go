@@ -96,7 +96,7 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 
 // Tradeoff: For now we are using Server-side streaming to send log in real-time to the client.
 // This solution is simple but it can easily overload the server.
-// TODO: A better approach is to use bi-directional streaming implement digestion control to negotiate the data flow in ASYNC mode
+// TODO: A better approach is to use bi-directional streaming implement congestion control to negotiate the data flow in ASYNC mode
 
 // StreamLog maintains a stream of job logs specified by user.
 // It receives user request, which indicates the job that they want to retrieve the log, and the nb of sequence that the stream should start from.
