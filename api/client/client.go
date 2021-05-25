@@ -23,6 +23,7 @@ type Client struct {
 	tlsConfig  *tls.Config
 }
 
+// NewWithTLS create new Client with TLS connection
 func NewWithTLS(address string, tlsConfig *tls.Config) (*Client, error) {
 	dialOptions := clientDialOptions()
 	dialOptions = append(dialOptions, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -42,7 +43,7 @@ func NewWithTLS(address string, tlsConfig *tls.Config) (*Client, error) {
 	}, nil
 }
 
-// NewWithInsecure creates a new Client to connect to server address specified in the parameters
+// NewWithInsecure creates a new Client with insecure connection
 func NewWithInsecure(address string) (*Client, error) {
 	dialOptions := clientDialOptions()
 	dialOptions = append(dialOptions, grpc.WithInsecure())

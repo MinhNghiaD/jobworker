@@ -41,7 +41,7 @@ var (
 func main() {
 	subCommand := kingpin.Parse()
 
-	cli, err := client.New(*address)
+	cli, err := client.NewWithInsecure(*address)
 	if err != nil {
 		logrus.Fatalf("Fail to init client %s", err)
 	}

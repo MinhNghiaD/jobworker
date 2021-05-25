@@ -16,15 +16,8 @@ type Certs struct {
 
 // LoadCerts loads certificates from files given by the arguments
 func LoadCerts(certFile string, keyFile string, caCertFiles []string) (*Certs, error) {
-	// Load server's certificate and private key
-	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-
 	certPool := x509.NewCertPool()
 	for _, caFile := range caCertFiles {
-		// Load certificate of the CA
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, err
@@ -33,6 +26,12 @@ func LoadCerts(certFile string, keyFile string, caCertFiles []string) (*Certs, e
 		if !certPool.AppendCertsFromPEM(caCert) {
 			return nil, fmt.Errorf("failed to add CA's certificate")
 		}
+	}
+
+	// Load server's certificate and private key
+	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Certs{

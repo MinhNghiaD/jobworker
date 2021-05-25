@@ -14,7 +14,7 @@ import (
 )
 
 func TestVerifyCertificate(t *testing.T) {
-	connectionCheck := func(clientTLSConfig *tls.Config, serverTLSConfig *tls.Config) error {
+	connectionCheck := func(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) error {
 		server, err := service.NewServer(7777, serverTLSConfig)
 		if err != nil {
 			return err
@@ -23,7 +23,7 @@ func TestVerifyCertificate(t *testing.T) {
 		go server.Serve()
 		defer server.Close()
 
-		cli, err := client.NewWithTLS("localhost:7777", clientTLSConfig)
+		cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLSConfig)
 		if err != nil {
 			return err
 		}
@@ -53,24 +53,54 @@ func TestVerifyCertificate(t *testing.T) {
 		expectErrCode  codes.Code
 	}{
 		{
-			"happy case",
-			"../../scripts/server-cert.pem",
-			"../../scripts/server-key.pem",
-			[]string{"../../scripts/server-ca-cert.pem"},
-			"../../scripts/client-cert.pem",
-			"../../scripts/client-key.pem",
-			[]string{"../../scripts/client-ca-cert.pem"},
+			"happy",
+			"../../assets/cert/server_cert.pem",
+			"../../assets/cert/server_key.pem",
+			[]string{"../../assets/cert/server_ca_cert.pem"},
+			"../../assets/cert/admin_cert.pem",
+			"../../assets/cert/admin_key.pem",
+			[]string{"../../assets/cert/client_ca_cert.pem"},
 			codes.OK,
+		},
+		{
+			"self-signed client",
+			"../../assets/cert/server_cert.pem",
+			"../../assets/cert/server_key.pem",
+			[]string{"../../assets/cert/server_ca_cert.pem"},
+			"../../assets/cert/selfsigned_client_cert.pem",
+			"../../assets/cert/selfsigned_client_key.pem",
+			[]string{"../../assets/cert/client_ca_cert.pem"},
+			codes.Unavailable,
+		},
+		{
+			"self-signed server",
+			"../../assets/cert/selfsigned_server_cert.pem",
+			"../../assets/cert/selfsigned_server_key.pem",
+			[]string{"../../assets/cert/server_ca_cert.pem"},
+			"../../assets/cert/observer_cert.pem",
+			"../../assets/cert/observer_key.pem",
+			[]string{"../../assets/cert/client_ca_cert.pem"},
+			codes.Unavailable,
 		},
 		{
 			"untrusted client",
 			"../../assets/cert/server_cert.pem",
 			"../../assets/cert/server_key.pem",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/selfsignedcli_cert.pem",
-			"../../assets/cert/selfsignedcli_key.pem",
+			"../../assets/cert/untrusted_client_cert.pem",
+			"../../assets/cert/untrusted_client_key.pem",
 			[]string{"../../assets/cert/client_ca_cert.pem"},
-			codes.OK,
+			codes.Unavailable,
+		},
+		{
+			"untrusted server",
+			"../../assets/cert/untrusted_server_cert.pem",
+			"../../assets/cert/untrusted_server_key.pem",
+			[]string{"../../assets/cert/server_ca_cert.pem"},
+			"../../assets/cert/observer_cert.pem",
+			"../../assets/cert/observer_key.pem",
+			[]string{"../../assets/cert/client_ca_cert.pem"},
+			codes.Unavailable,
 		},
 	}
 
@@ -88,7 +118,7 @@ func TestVerifyCertificate(t *testing.T) {
 				return
 			}
 
-			err = connectionCheck(serverCert.ServerTLSConfig(), clientCert.ClientTLSConfig())
+			err = connectionCheck(serverCert.ServerTLSConfig(), clientCert.ClientTLSConfig().Clone())
 
 			if err != nil {
 				s := status.Convert(err)
@@ -100,5 +130,4 @@ func TestVerifyCertificate(t *testing.T) {
 			}
 		})
 	}
-
 }

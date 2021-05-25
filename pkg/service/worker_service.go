@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -158,10 +160,11 @@ type WorkerServer struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
 	service    *WorkerService
+	tlsConfig  *tls.Config
 }
 
 // NewServer creates a new server, listening at the specified port
-func NewServer(port int) (*WorkerServer, error) {
+func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
 	logrus.Infof("Listen at port %d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
@@ -169,6 +172,11 @@ func NewServer(port int) (*WorkerServer, error) {
 	}
 
 	opts := serverConfig()
+	if tlsConfig != nil {
+		logrus.Info("Start server with TLS authentication")
+		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
 	grpcServer := grpc.NewServer(opts...)
 
 	service, err := newWorkerService()
@@ -182,6 +190,7 @@ func NewServer(port int) (*WorkerServer, error) {
 		grpcServer: grpcServer,
 		listener:   listener,
 		service:    service,
+		tlsConfig:  tlsConfig,
 	}, nil
 }
 
