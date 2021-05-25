@@ -116,7 +116,7 @@ func TestVerifyCertificate(t *testing.T) {
 				return
 			}
 
-			err = connectionCheck(serverCert.ServerTLSConfig(), clientCert.ClientTLSConfig().Clone())
+			err = connectionCheck(serverCert.ServerTLSConfig(), clientCert.ClientTLSConfig())
 
 			if err != nil {
 				s := status.Convert(err)
