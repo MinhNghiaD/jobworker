@@ -27,6 +27,7 @@ build:
 	@-$(MAKE) clean
 	@-$(MAKE) proto
 	@-$(MAKE) update-vendor
+	@-$(MAKE) cert
 	@echo "  >  Building binary..."
 	@go build -o $(BIN)/ ./...
 
@@ -64,4 +65,5 @@ lint: lint-go
 
 .PHONY: cert
 cert:
+	@echo "  >  Generating certificates"
 	@-bash $(SCRIPT)/cert_gen.sh

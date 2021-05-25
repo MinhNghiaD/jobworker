@@ -43,6 +43,27 @@ If the build succeeds, the binaries can be found in the following directory: `./
 
 To run all tests, please run `make test`
 
+### Security configuration
+#### mTLS 
+To ensure the integrity of gRPC commucation, we use TLS 1.3 for our mTLS configuration. With Golang, the current cipher suites supported are: 
+* TLS_AES_128_GCM_SHA256
+* TLS_AES_256_GCM_SHA384
+* TLS_CHACHA20_POLY1305_SHA256
+
+#### Authentication
+
+For this service, 256-bit ECDSA is reasonable choice for private key and certificate encryption. Compared to the traditional RSA, ECDSA provides better security, with smaller keys and better performance.
+
+To generate the template certificates for testing, please run `make cert`
+
+#### Authorization
+For authorization, we use Role-based access control to limit user access. The current roles supported are:
+* Admin: Gain access right to start/stop/query/stream all jobs in the system.
+* Observer: Gain read-only access to query job status and stream log.
+
+As a tradeoff of this project, we borrow the organizational_unit field of the x.509 certificate to encode the value of user role. For future implementation, RBAC should be implement properly with credential-based authorization.
+
+
 ### Usage
 
 #### Service
