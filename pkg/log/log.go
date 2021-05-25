@@ -23,11 +23,6 @@ type Logger struct {
 // Close closes loggers and its log file.
 // It also close the EventHook which results in the EOF notification to all its subscribers
 func (logger *Logger) Close() error {
-	if err := logger.file.Sync(); err != nil {
-		logrus.Errorf("Fail to sync file %s, error: %s", logger.file.Name(), err)
-		return err
-	}
-
 	if err := logger.file.Close(); err != nil {
 		logrus.Errorf("Fail to close file %s, error: %s", logger.file.Name(), err)
 		return err
@@ -72,8 +67,9 @@ func (manager *LogsManager) NewLogger(ID string) (*Logger, error) {
 		return nil, fmt.Errorf("ID cannot be empty")
 	}
 
-	formatter := new(logrus.JSONFormatter)
-	formatter.TimestampFormat = "02-25-2001 15:04:05"
+	formatter := &logrus.JSONFormatter{
+		TimestampFormat: "02-01-2006 15:04:05",
+	}
 
 	fileName := filepath.Join(manager.logsDir, fmt.Sprintf("%s.log", ID))
 

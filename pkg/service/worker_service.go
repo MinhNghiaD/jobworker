@@ -39,10 +39,6 @@ func newWorkerService() (*WorkerService, error) {
 
 // StartJob starts a job corresponding to user request. It returns an error in case the internal service is not ready or the command is invalid
 func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	// TODO Get Owner common name from certificate
 	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
@@ -57,10 +53,6 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 // StopJob terminates a job specified by user request.
 // It returns an error when the internal service is not ready, the job id is not valid or the stop is failed to stop
 func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	j, ok := service.jobsManager.GetJob(request.Job.Id)
 	if !ok {
 		badRequest := &errdetails.BadRequest{
@@ -84,10 +76,6 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 
 // QueryJob returns the status of a job. It returns an error in case the internal service is not ready or the job id is not valid
 func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
-	if service.jobsManager == nil {
-		return nil, status.Errorf(codes.Unavailable, "Job Managers is not ready")
-	}
-
 	// TODO Get Owner common name from certificate
 	j, ok := service.jobsManager.GetJob(protoJob.Id)
 	if !ok {
@@ -162,10 +150,6 @@ func (service *WorkerService) StreamLog(request *proto.StreamRequest, stream pro
 
 // Cleanup cleanups the service
 func (service *WorkerService) Cleanup() error {
-	if service.jobsManager == nil {
-		return fmt.Errorf("Job Managers is not initiated")
-	}
-
 	return service.jobsManager.Cleanup()
 }
 
