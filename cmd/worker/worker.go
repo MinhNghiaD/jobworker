@@ -14,7 +14,7 @@ var (
 func main() {
 	kingpin.Parse()
 
-	server, err := service.NewServer(*port)
+	server, err := service.NewServer(*port, nil)
 	if err != nil {
 		logrus.Fatal(err)
 	}

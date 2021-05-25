@@ -20,7 +20,7 @@ import (
 // Data race, Goroutine leak, deadlock and system crash can be detected by this test
 func TestSimulation(t *testing.T) {
 	rand.Seed(1420)
-	server, err := service.NewServer(7777)
+	server, err := service.NewServer(7777, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestSimulation(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := client.New("127.0.0.1:7777")
+			client, err := client.NewWithInsecure("127.0.0.1:7777")
 			if err != nil {
 				t.Errorf("Fail to init client %s", err)
 				return

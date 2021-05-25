@@ -40,7 +40,10 @@ test-job:
 test-grpc:
 	@go test -race ./pkg/service/...
 
-test: test-log test-job test-grpc
+test-auth:
+	@go test -race ./pkg/auth/...
+
+test: test-log test-job test-grpc test-auth
 
 .PHONY: clean
 clean:

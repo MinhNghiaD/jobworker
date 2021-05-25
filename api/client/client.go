@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -18,11 +20,33 @@ import (
 type Client struct {
 	connection *grpc.ClientConn
 	stub       proto.WorkerServiceClient
+	tlsConfig  *tls.Config
 }
 
-// New creates a new Client to connect to server address specified in the parameters
-func New(address string) (*Client, error) {
+func NewWithTLS(address string, tlsConfig *tls.Config) (*Client, error) {
 	dialOptions := clientDialOptions()
+	dialOptions = append(dialOptions, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+
+	dialContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	connection, err := grpc.DialContext(dialContext, address, dialOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		connection: connection,
+		stub:       proto.NewWorkerServiceClient(connection),
+		tlsConfig:  tlsConfig,
+	}, nil
+}
+
+// NewWithInsecure creates a new Client to connect to server address specified in the parameters
+func NewWithInsecure(address string) (*Client, error) {
+	dialOptions := clientDialOptions()
+	dialOptions = append(dialOptions, grpc.WithInsecure())
+
 	dialContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -172,7 +196,6 @@ func clientDialOptions() []grpc.DialOption {
 		MinConnectTimeout: 20 * time.Second,
 	}
 
-	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithKeepaliveParams(keepalivePolicy))
 	opts = append(opts, grpc.WithConnectParams(connectParameters))
 
