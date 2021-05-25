@@ -41,6 +41,7 @@ test-grpc:
 	@go test -race ./pkg/service/...
 
 test-auth:
+	@-$(MAKE) cert
 	@go test -race ./pkg/auth/...
 
 test: test-log test-job test-grpc test-auth

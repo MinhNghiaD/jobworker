@@ -8,7 +8,7 @@ CERTDIR=$PWD"/assets/cert"
 CONFDIR=$PWD"/scripts/conf"
 
 rm -rf $CERTDIR
-mkdir $CERTDIR
+mkdir -p $CERTDIR
 
 #####################################################################################################
 # In this file we will generate some keys and certificates for the following test cases
