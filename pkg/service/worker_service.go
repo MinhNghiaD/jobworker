@@ -15,28 +15,56 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-// WorkerService is the gRPC Service of Worker
-type WorkerService struct {
+// WorkerServer is gRPC Server of worker service
+type WorkerServer struct {
 	proto.UnimplementedWorkerServiceServer
+	grpcServer  *grpc.Server
+	listener    net.Listener
 	jobsManager job.JobsManager
 }
 
-// newWorkerService initiates new service
-func newWorkerService() (*WorkerService, error) {
+// NewServer creates a new server, listening at the specified port
+func NewServer(port int) (*WorkerServer, error) {
+	logrus.Infof("Listen at port %d", port)
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return nil, err
+	}
+
+	opts := serverConfig()
+	grpcServer := grpc.NewServer(opts...)
+
 	jobsManager, err := job.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
-	return &WorkerService{
+	return &WorkerServer{
+		grpcServer:  grpcServer,
+		listener:    listener,
 		jobsManager: jobsManager,
 	}, nil
 }
 
+// Serve tarts the server
+func (server *WorkerServer) Serve() error {
+	proto.RegisterWorkerServiceServer(server.grpcServer, server)
+	return server.grpcServer.Serve(server.listener)
+}
+
+// Close closes the listener and perform cleanup
+func (server *WorkerServer) Close() error {
+	server.grpcServer.GracefulStop()
+	err := server.listener.Close()
+	server.jobsManager.Cleanup()
+
+	return err
+}
+
 // StartJob starts a job corresponding to user request
-func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
+func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
 	// TODO Get Owner common name from certificate
-	jobID, err := service.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
+	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +75,8 @@ func (service *WorkerService) StartJob(ctx context.Context, cmd *proto.Command) 
 }
 
 // StopJob terminates a job specified by user request
-func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
-	j, ok := service.jobsManager.GetJob(request.Job.Id)
+func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
+	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
 		badRequest := &errdetails.BadRequest{
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
@@ -70,9 +98,9 @@ func (service *WorkerService) StopJob(ctx context.Context, request *proto.StopRe
 }
 
 // QueryJob returns the status of a job
-func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
+func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	// TODO Get Owner common name from certificate
-	j, ok := service.jobsManager.GetJob(protoJob.Id)
+	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
 		badRequest := &errdetails.BadRequest{
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
@@ -87,57 +115,6 @@ func (service *WorkerService) QueryJob(ctx context.Context, protoJob *proto.Job)
 	}
 
 	return j.Status(), nil
-}
-
-// Cleanup cleanups the service
-func (service *WorkerService) Cleanup() error {
-	return service.jobsManager.Cleanup()
-}
-
-// WorkerServer is gRPC Server of worker service
-type WorkerServer struct {
-	grpcServer *grpc.Server
-	listener   net.Listener
-	service    *WorkerService
-}
-
-// NewServer creates a new server, listening at the specified port
-func NewServer(port int) (*WorkerServer, error) {
-	logrus.Infof("Listen at port %d", port)
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-	if err != nil {
-		return nil, err
-	}
-
-	opts := serverConfig()
-	grpcServer := grpc.NewServer(opts...)
-
-	service, err := newWorkerService()
-	if err != nil {
-		return nil, err
-	}
-
-	proto.RegisterWorkerServiceServer(grpcServer, service)
-
-	return &WorkerServer{
-		grpcServer: grpcServer,
-		listener:   listener,
-		service:    service,
-	}, nil
-}
-
-// Serve tarts the server
-func (server *WorkerServer) Serve() error {
-	return server.grpcServer.Serve(server.listener)
-}
-
-// Close closes the listener and perform cleanup
-func (server *WorkerServer) Close() error {
-	server.grpcServer.GracefulStop()
-	err := server.listener.Close()
-	server.service.Cleanup()
-
-	return err
 }
 
 // serverConfig returns gRPC Server configurations
