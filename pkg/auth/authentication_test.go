@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"testing"
+	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
@@ -192,6 +193,59 @@ func TestVerifyProtocol(t *testing.T) {
 	t.Cleanup(func() {
 		server.Close()
 		cli1.Close()
-		cli1.Close()
+		cli2.Close()
+	})
+}
+
+// TestExpiration verifies the mTLS configuration accept only valid certificate
+func TestExpiration(t *testing.T) {
+	serverCert, err := auth.LoadCerts(
+		"../../assets/cert/server_cert.pem",
+		"../../assets/cert/server_key.pem",
+		[]string{"../../assets/cert/client_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	server, err := service.NewServer(7777, serverCert.ServerTLSConfig())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	go server.Serve()
+
+	clientCert, err := auth.LoadCerts(
+		"../../assets/cert/admin_cert.pem",
+		"../../assets/cert/admin_key.pem",
+		[]string{"../../assets/cert/server_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Increment the date to simulate a certificate expiration
+	nextYear := time.Now().AddDate(1, 0, 0)
+	clientTLSConfig := clientCert.ClientTLSConfig()
+	clientTLSConfig.Time = nextYear.Local
+
+	cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLSConfig)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = cli.StartJob(context.Background(), &proto.Command{
+		Cmd:  "ls",
+		Args: nil,
+	})
+
+	if err == nil || status.Convert(err).Code() != codes.Unavailable {
+		t.Errorf("Error %s, while expected error code %v", err, codes.Unavailable)
+	}
+
+	t.Cleanup(func() {
+		server.Close()
+		cli.Close()
 	})
 }
