@@ -121,11 +121,10 @@ func resetServer(server *WorkerServer) (*WorkerServer, error) {
 
 	opts := serverConfig()
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterWorkerServiceServer(grpcServer, server.service)
 
 	return &WorkerServer{
-		grpcServer: grpcServer,
-		listener:   newListener,
-		service:    server.service,
+		grpcServer:  grpcServer,
+		listener:    newListener,
+		jobsManager: server.jobsManager,
 	}, nil
 }
