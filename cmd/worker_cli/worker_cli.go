@@ -122,26 +122,28 @@ func queryJob(c *client.Client, jobID string) error {
 func streamLog(c *client.Client, jobID string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	receiver, err := c.GetLogReceiver(ctx, &proto.Job{Id: jobID})
-	var entry *proto.Log = nil
 
-	for err == nil {
-		entry, err = receiver.Read()
-		if err == nil {
-			var data map[string]string
-			if err := json.Unmarshal([]byte(entry.Entry), &data); err != nil {
-				logrus.Warn("Fail to decode json format")
-			} else {
-				fmt.Printf("%s: %s\n", data["source"], data["msg"])
-			}
+	receiver, err := c.GetLogReceiver(ctx, &proto.Job{Id: jobID})
+	if err != nil {
+		return err
+	}
+
+	for {
+		in, err := receiver.Read()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		var data map[string]string
+		if err := json.Unmarshal([]byte(in.Entry), &data); err != nil {
+			logrus.Warn("Fail to decode json format")
+		} else {
+			fmt.Printf("%s: %s\n", data["source"], data["msg"])
 		}
 	}
-
-	if err == io.EOF {
-		return nil
-	}
-
-	return err
 }
 
 // printJobStatus displays the job status
