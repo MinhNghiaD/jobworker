@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"crypto/tls"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -17,23 +18,14 @@ import (
 // TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
 func TestVerifyCertificate(t *testing.T) {
 	connectionCheck := func(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) error {
-		server, err := service.NewServer(7777)
-		if err != nil {
-			return err
-		}
-
+		server, cli := initTestServerClient(t, serverTLSConfig, clientTLSConfig)
 		server.AddAuthentication(serverTLSConfig)
 		go server.Serve()
+
 		defer server.Close()
-
-		cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLSConfig)
-		if err != nil {
-			return err
-		}
-
 		defer cli.Close()
 
-		_, err = cli.StartJob(context.Background(), &proto.Command{
+		_, err := cli.StartJob(context.Background(), &proto.Command{
 			Cmd:  "ls",
 			Args: nil,
 		})
@@ -139,13 +131,12 @@ func TestVerifyProtocol(t *testing.T) {
 		[]string{"../../assets/cert/client_ca_cert.pem"},
 	)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	server, err := service.NewServer(7777)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	server.AddAuthentication(serverCert.ServerTLSConfig())
@@ -207,17 +198,8 @@ func TestExpiration(t *testing.T) {
 		[]string{"../../assets/cert/client_ca_cert.pem"},
 	)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	server.AddAuthentication(serverCert.ServerTLSConfig())
-	go server.Serve()
 
 	clientCert, err := auth.LoadCerts(
 		"../../assets/cert/user1_cert.pem",
@@ -225,7 +207,7 @@ func TestExpiration(t *testing.T) {
 		[]string{"../../assets/cert/server_ca_cert.pem"},
 	)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// Increment the date to simulate a certificate expiration
@@ -233,10 +215,9 @@ func TestExpiration(t *testing.T) {
 	clientTLSConfig := clientCert.ClientTLSConfig()
 	clientTLSConfig.Time = nextYear.Local
 
-	cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLSConfig)
-	if err != nil {
-		t.Error(err)
-	}
+	server, cli := initTestServerClient(t, serverCert.ServerTLSConfig(), clientTLSConfig)
+
+	go server.Serve()
 
 	_, err = cli.StartJob(context.Background(), &proto.Command{
 		Cmd:  "ls",
@@ -251,4 +232,36 @@ func TestExpiration(t *testing.T) {
 		server.Close()
 		cli.Close()
 	})
+}
+
+// initTestServerClient creates test server and test client.
+// If the call is success, it will return the server and client for testing.
+// If it fail, neither of them is returned
+func initTestServerClient(t *testing.T, serverTLS *tls.Config, clientTLS *tls.Config) (*service.WorkerServer, *client.Client) {
+	server, err := service.NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLS)
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Using admin to initiate certain jobs for other user testing
+	adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.AddAuthentication(serverTLS)
+	server.AddAuthorization(jwtCert)
+	cli.UseToken(string(adminToken))
+
+	return server, cli
 }
