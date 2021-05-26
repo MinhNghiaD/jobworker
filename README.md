@@ -47,46 +47,59 @@ To run all tests, please run `make test`
 
 #### Service
 
-In order to run the service, from the `./bin` directory, you can run:
+In order to run the service, from the `./bin` directory, you can run
 
 ```bash
-$ ./worker -port=7777 -cert=cert.pem -key=key.pem -ca=client_ca1.pem client_ca2.pem
-```
+usage: worker [<flags>]
 
-* `-port` specifies the port that you want to run your server.
-* `-cert` specifies the location of certificate that you will use for the server
-* `-key`  specifies the location of private key associates with the certificate
-* `-ca`   specifies the list of trusted client certificate authorities. 
+Flags:
+  --help                 Show context-sensitive help (also try --help-long and --help-man).
+  --port=7777            server port
+  --cert=server_cert.pem server certificate
+  --key=server_key.pem   server private key
+  --ca                   list of trusted client certificate authorities.
+
+```
 
 #### Client CLI
 
-Come along with the service is the client CLI for user to access to the service. from the `./bin` directory, you can run the client with `./worker_cli`. Same as the service, the basic command line options of the client are: 
-* `-a` specifies the address of the server that we want to access. Ex: `-a=domain.name:port`
-* `-cert` specifies the location of certificate that you will use for the client. Ex: `-cert=cert.pem`
-* `-key`  specifies the location of private key associates with the certificate. Ex: `-key=key.pem`
-* `-ca`   specifies the trusted server certificate authorities. Ex:
-
-For each supported functionalities, we have the following subcommands:
-
-* `help` provides the detail instructions on how to use the CLI.
-* `start` starts a job on the server. Come along with `start` is the option `-cmd`, which specifies the command to run and its arguments. Ex: `-cmd="ls" "-la"`
-* `stop` stops a job on the server. Come along with `stop` is the option `-job`, which specifies the job ID, and an optional flag `-force` to force the job to terminate immediately. 
-* `query` queries the status of a job on the server. Come along with `query` is the option `-job`, which specifies the job ID.
-* `stream` start a stream of log of a job on the server. Come along with `stream` is the option `-job`, which specifies the job ID.
-
-Examples:
+Come along with the service is the client CLI for user to access to the service. from the `./bin` directory, you can run the client with `./worker_cli`.
 
 ```bash
-# help
-$ ./worker_cli help
-# start
-$ ./worker_cli start -a=domain.name:port -cert=cert.pem -key=key.pem -ca=server_ca.pem -cmd=”ls” “-la”
-# stop
-$ ./worker_cli stop -force -a=domain.name:port -cert=cert.pem -key=key.pem -ca=server_ca.pem -job=job-id
-# query
-$ ./worker_cli query -a=domain.name:port -cert=cert.pem -key=key.pem -ca=server_ca.pem -job=job-id
-# stream 
-$ ./worker_cli stream -a=domain.name:port -cert=cert.pem -key=key.pem -ca=server_ca.pem -job=job-id
+usage: worker_cli [<flags>] <command> [<args> ...]
+
+Flags:
+  --help                 Show context-sensitive help (also try --help-long and --help-man).
+  --a="127.0.0.1:7777"   server address
+  --cert=client_cert.pem client certificate
+  --key=client_key.pem   client private key
+  --ca                   server certificate authority
+
+Commands:
+  help [<command>...]
+    Show help.
+
+
+  start [<flags>]
+    Start a job on worker service.
+
+    --cmd=""  command to be executed
+
+  stop [<flags>]
+    Stop a job on worker service.
+
+    --force   force job to terminate immediately
+    --job=""  job id
+
+  query [<flags>]
+    Query status of a job on worker service.
+
+    --job=""  job id
+```
+
+For examples:
+```bash
+$ ./worker_cli --a=127.0.0.1:7777 --key=client_key.pem --key=client_key.pem start --ca=server_ca.pem --cmd=bash -- "-c" "trap -- SIGINT SIGTERM SIGKILL; while true; do date +%F_%T; sleep 1; done"
 ```
 
 ## More Information
