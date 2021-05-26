@@ -95,12 +95,12 @@ func stopJob(c *client.Client, jobID string, force bool) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
-	st, err := c.StopJob(ctx, request)
+	jobStatus, err := c.StopJob(ctx, request)
 	if err != nil {
 		return err
 	}
 
-	printJobStatus(st)
+	printJobStatus(jobStatus)
 	return nil
 }
 
@@ -109,12 +109,12 @@ func queryJob(c *client.Client, jobID string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
-	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
+	jobStatus, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 	if err != nil {
 		return err
 	}
 
-	printJobStatus(st)
+	printJobStatus(jobStatus)
 	return nil
 }
 
@@ -145,14 +145,14 @@ func streamLog(c *client.Client, jobID string) error {
 }
 
 // printJobStatus displays the job status
-func printJobStatus(status *proto.JobStatus) {
-	fmt.Printf("Job %s: \n", status.GetJob().GetId())
-	fmt.Printf("\t - Command: %s \n", status.GetCommand().GetCmd())
-	fmt.Printf("\t - Creator: %s \n", status.GetOwner())
+func printJobStatus(jobStatus *proto.JobStatus) {
+	fmt.Printf("Job %s: \n", jobStatus.GetJob().GetId())
+	fmt.Printf("\t - Command: %s \n", jobStatus.GetCommand().GetCmd())
+	fmt.Printf("\t - Creator: %s \n", jobStatus.GetOwner())
 	fmt.Printf("\t - Status : \n")
-	fmt.Printf("\t\t - PID      : %d \n", status.GetStatus().Pid)
-	fmt.Printf("\t\t - State    : %v \n", status.GetStatus().State)
-	fmt.Printf("\t\t - Exit code: %d \n", status.GetStatus().ExitCode)
+	fmt.Printf("\t\t - PID      : %d \n", jobStatus.GetStatus().Pid)
+	fmt.Printf("\t\t - State    : %v \n", jobStatus.GetStatus().State)
+	fmt.Printf("\t\t - Exit code: %d \n", jobStatus.GetStatus().ExitCode)
 }
 
 func reportError(err error) {

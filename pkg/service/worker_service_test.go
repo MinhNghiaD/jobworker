@@ -736,12 +736,12 @@ func initTestServerClient(t *testing.T) (*service.WorkerServer, *client.Client) 
 		t.Fatal(err)
 	}
 
-	client, err := client.New("127.0.0.1:7777")
+	cli, err := client.New("127.0.0.1:7777")
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
-	return server, client
+	return server, cli
 }
 
 // readLog reads logs from the job
