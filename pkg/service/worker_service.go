@@ -17,6 +17,7 @@ import (
 // WorkerServer is gRPC Server of worker service
 type WorkerServer struct {
 	proto.UnimplementedWorkerServiceServer
+	opts        []grpc.ServerOption
 	grpcServer  *grpc.Server
 	listener    net.Listener
 	jobsManager job.JobsManager
@@ -31,15 +32,14 @@ func NewServer(port int) (*WorkerServer, error) {
 	}
 
 	opts := serverConfig()
-	grpcServer := grpc.NewServer(opts...)
-
 	jobsManager, err := job.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorkerServer{
-		grpcServer:  grpcServer,
+		opts:        opts,
+		grpcServer:  nil,
 		listener:    listener,
 		jobsManager: jobsManager,
 	}, nil
@@ -47,7 +47,9 @@ func NewServer(port int) (*WorkerServer, error) {
 
 // Serve tarts the server
 func (server *WorkerServer) Serve() error {
+	server.grpcServer = grpc.NewServer(server.opts...)
 	proto.RegisterWorkerServiceServer(server.grpcServer, server)
+
 	return server.grpcServer.Serve(server.listener)
 }
 
@@ -62,7 +64,6 @@ func (server *WorkerServer) Close() error {
 
 // StartJob starts a job corresponding to user request
 func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	// TODO Get Owner common name from certificate
 	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
 		return nil, err
@@ -89,7 +90,6 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 
 // QueryJob returns the status of a job
 func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
-	// TODO Get Owner common name from certificate
 	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
 		return nil, job.ReportError(codes.NotFound, "Fail to query job", "job", "Job ID is not correct")
