@@ -15,14 +15,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
+// TestRBAC verifies RBAC rules predefined by the default configuration.
+// It ensures that admin has all access to all APIs on all jobs.
+// User has access right to Start/Query APIs and can only Stop/Stream the their jobs.
+// Observer can only Query jobs
+// Other undefined roles cannot access the system
+// Invalid token signed by unknown party cannot access the system
 func TestRBAC(t *testing.T) {
-	server, err := service.NewServer(7777)
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +77,7 @@ func TestRBAC(t *testing.T) {
 		}
 	}
 
+	// helper functions perform the 4 basic RPCs
 	start := func(cli *client.Client) error {
 		_, err := cli.StartJob(context.Background(), &proto.Command{Cmd: "ls"})
 

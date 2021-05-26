@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-// Certs contains certificates and CA certificates pool
+// Certs contains certificates and CA certificates pool to establish TLS configuration
 type Certs struct {
 	Certificate *tls.Certificate
 	CAPool      *x509.CertPool
 }
 
-// LoadCerts loads certificates from files given by the arguments
+// LoadCerts loads certificates and key from files given by the arguments
 func LoadCerts(certFile string, keyFile string, caCertFiles []string) (*Certs, error) {
 	certPool := x509.NewCertPool()
 	for _, caFile := range caCertFiles {
@@ -73,6 +73,7 @@ func (cert *Certs) ClientTLSConfig() *tls.Config {
 	}
 }
 
+// ReaderCertFile reads the certificate from its file and encoded in x509.Certificate object
 func ReaderCertFile(certFile string) (*x509.Certificate, error) {
 	certPem, err := ioutil.ReadFile(certFile)
 	if err != nil {

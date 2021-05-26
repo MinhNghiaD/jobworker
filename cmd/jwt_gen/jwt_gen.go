@@ -24,7 +24,7 @@ func main() {
 	kingpin.Parse()
 	claimFile, err := os.Open(*in)
 	if err != nil {
-		logrus.Fatal("Fail to open claim file, %s", err)
+		logrus.Fatalf("Fail to open claim file, %s", err)
 	}
 
 	defer claimFile.Close()
@@ -33,7 +33,7 @@ func main() {
 	decoder := yaml.NewDecoder(claimFile)
 	var claims token.Claims
 	if err := decoder.Decode(&claims); err != nil {
-		logrus.Fatal("Fail to parse claim file, %s", err)
+		logrus.Fatalf("Fail to parse claim file, %s", err)
 	}
 
 	// Mark claim with the issuer
@@ -41,22 +41,22 @@ func main() {
 
 	certificate, err := tls.LoadX509KeyPair(*cert, *key)
 	if err != nil {
-		logrus.Fatal("Fail to load private key, %s", err)
+		logrus.Fatalf("Fail to load private key, %s", err)
 	}
 
 	// Signing token with private key
 	rawToken, err := auth.GenerateToken(&claims, certificate)
 	if err != nil {
-		logrus.Fatal("Fail to generate token, %s", err)
+		logrus.Fatalf("Fail to generate token, %s", err)
 	}
 
 	outputFile, err := os.OpenFile(*out, (os.O_CREATE | os.O_WRONLY), 0644)
 	if err != nil {
-		logrus.Fatal("Fail to create output file, %s", err)
+		logrus.Fatalf("Fail to create output file, %s", err)
 	}
 
 	_, err = outputFile.WriteString(rawToken)
 	if err != nil {
-		logrus.Fatal("Fail to write to output file, %s", err)
+		logrus.Fatalf("Fail to write to output file, %s", err)
 	}
 }

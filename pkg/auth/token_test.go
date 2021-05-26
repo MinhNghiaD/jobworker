@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// TestToken test encoding and decoding of a user claim with JWT
 func TestToken(t *testing.T) {
 	keyPair, err := tls.LoadX509KeyPair("../../assets/cert/jwt_cert.pem", "../../assets/cert/jwt_key.pem")
 	if err != nil {

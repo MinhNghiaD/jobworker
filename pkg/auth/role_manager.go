@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"github.com/MinhNghiaD/jobworker/pkg/job"
 	token "github.com/libopenstorage/openstorage-sdk-auth/pkg/auth"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -17,7 +16,6 @@ import (
 type AccessesMap map[string](map[string]AccessRight)
 
 type AccessRight struct {
-	api       string
 	accessAll bool
 }
 
@@ -28,65 +26,58 @@ var (
 		// system.admin role can access to any APIs
 		"system.admin": map[string]AccessRight{
 			"/proto.WorkerService/StartJob": {
-				api:       "/proto.WorkerService/StartJob",
 				accessAll: true,
 			},
 			"/proto.WorkerService/StopJob": {
-				api:       "/proto.WorkerService/StopJob",
 				accessAll: true,
 			},
 			"/proto.WorkerService/QueryJob": {
-				api:       "/proto.WorkerService/QueryJob",
 				accessAll: true,
 			},
 			"/proto.WorkerService/StreamLog": {
-				api:       "/proto.WorkerService/StreamLog",
 				accessAll: true,
 			},
 		},
 		// system.user role can access to Start/Query any jobs but can only stop or stream their created jobs
 		"system.user": map[string]AccessRight{
 			"/proto.WorkerService/StartJob": {
-				api:       "/proto.WorkerService/StartJob",
 				accessAll: true,
 			},
 			"/proto.WorkerService/StopJob": {
-				api:       "/proto.WorkerService/StopJob",
 				accessAll: false,
 			},
 			"/proto.WorkerService/QueryJob": {
-				api:       "/proto.WorkerService/QueryJob",
 				accessAll: true,
 			},
 			"/proto.WorkerService/StreamLog": {
-				api:       "/proto.WorkerService/StreamLog",
 				accessAll: false,
 			},
 		},
 		// system.observer role can only Query jobs
 		"system.observer": map[string]AccessRight{
 			"/proto.WorkerService/QueryJob": {
-				api:       "/proto.WorkerService/QueryJob",
 				accessAll: true,
 			},
 		},
 	}
 )
 
+// RoleManager manages RBAC authorization and gRPC interceptors of Job worker service
+// It intercepts the incomming messages and using the JWT signing certificate to verify user access right to certain APIs
 type RoleManager struct {
 	accessesMap AccessesMap
-	jobsManager job.JobsManager
 	jwtCert     *x509.Certificate
 }
 
-func NewRoleManager(jobsManager job.JobsManager, cert *x509.Certificate) *RoleManager {
+// NewRoleManager creates a new RoleManager with its signing certificate
+func NewRoleManager(cert *x509.Certificate) *RoleManager {
 	return &RoleManager{
 		accessesMap: defaultRoles,
-		jobsManager: jobsManager,
 		jwtCert:     cert,
 	}
 }
 
+// AuthorizationUnaryInterceptor intercepts incoming Unary RPC and uses the JWT of the client to perform access control
 func (manager *RoleManager) AuthorizationUnaryInterceptor(
 	ctx context.Context,
 	req interface{},
@@ -101,6 +92,7 @@ func (manager *RoleManager) AuthorizationUnaryInterceptor(
 	return handler(ctx, req)
 }
 
+// AuthorizationStreamInterceptor intercepts incoming Streaming RPC and uses the JWT of the client to perform access control
 func (manager *RoleManager) AuthorizationStreamInterceptor(
 	srv interface{},
 	stream grpc.ServerStream,
@@ -108,7 +100,6 @@ func (manager *RoleManager) AuthorizationStreamInterceptor(
 	handler grpc.StreamHandler,
 ) error {
 	ctx := stream.Context()
-
 	ctx, err := manager.authorize(ctx, info.FullMethod)
 	if err != nil {
 		return err
@@ -120,6 +111,7 @@ func (manager *RoleManager) AuthorizationStreamInterceptor(
 	})
 }
 
+// authorize verifies authorization of the token given by the client in its context
 func (manager *RoleManager) authorize(ctx context.Context, api string) (context.Context, error) {
 	claims, err := getClaimFromContext(ctx, manager.jwtCert)
 	if err != nil {
@@ -133,7 +125,7 @@ func (manager *RoleManager) authorize(ctx context.Context, api string) (context.
 		return nil, status.Errorf(codes.PermissionDenied, err.Error())
 	}
 
-	// Append user metatdata to the context
+	// Append user metatdata to the context for jobs access right
 	md := metadata.New(map[string]string{
 		"user":        claims.Subject,
 		"accessright": fmt.Sprintf("%v", right.accessAll),
@@ -142,6 +134,7 @@ func (manager *RoleManager) authorize(ctx context.Context, api string) (context.
 	return metadata.NewIncomingContext(ctx, md), nil
 }
 
+// lookupAccessRight using the claims decoded from the token to verify its access right to the requested API
 func (manager *RoleManager) lookupAccessRight(claims *token.Claims, api string) (*AccessRight, error) {
 	for _, role := range claims.Roles {
 		if accesses, ok := manager.accessesMap[role]; ok {
@@ -154,21 +147,22 @@ func (manager *RoleManager) lookupAccessRight(claims *token.Claims, api string) 
 	return nil, fmt.Errorf("User don't have claim to API %s", api)
 }
 
+// getClaimFromContext extracts user claims from the gRPC context
 func getClaimFromContext(ctx context.Context, certificate *x509.Certificate) (*token.Claims, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Errorf(codes.PermissionDenied, "token is not provided")
 	}
 
-	tokens, _ := md["token"]
-	if len(tokens) == 0 {
+	if len(md["token"]) == 0 {
 		return nil, status.Errorf(codes.PermissionDenied, "access token is not provided")
 	}
 
-	return DecodeToken(tokens[0], certificate)
+	return DecodeToken(md["token"][0], certificate)
 }
 
-// ContextWrappedServerStream is a wrapper for the real grpc.ServerStream. This wrapper is able to customize the context of stream
+// ContextWrappedServerStream is a wrapper for the real grpc.ServerStream.
+// This wrapper allows us to customize the context of stream and inject user information to context metadata.
 type ContextWrappedServerStream struct {
 	inner grpc.ServerStream
 	ctx   context.Context

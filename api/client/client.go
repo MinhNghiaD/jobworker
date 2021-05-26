@@ -64,7 +64,7 @@ func NewWithInsecure(address string) (*Client, error) {
 	}, nil
 }
 
-// Close closes the gRpc connection
+// UseToken receives the raw JWT for RBAC authorization
 func (c *Client) UseToken(rawToken string) {
 	c.token = rawToken
 }

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// GenerateToken generates a token associated with a claim, signed by ECDSA private signing key.
 func GenerateToken(claim *token.Claims, certificate tls.Certificate) (string, error) {
 	// Using ECDSA key
 	sig := token.Signature{
@@ -26,18 +27,20 @@ func GenerateToken(claim *token.Claims, certificate tls.Certificate) (string, er
 	return token.Token(claim, &sig, &opts)
 }
 
+// DecodeToken uses the certificate associated with the signing key to decrypt the token and returns the original claims
 func DecodeToken(raw string, certificate *x509.Certificate) (claims *token.Claims, err error) {
 	if certificate == nil {
 		return nil, fmt.Errorf("certificate is not provided")
 	}
 
 	defer func() {
+		// Fail-safe in case of invalid memory access during decoding
 		if r := recover(); r != nil {
 			err = fmt.Errorf("Decode is panic")
 		}
 	}()
 
-	// Using ECDSA key
+	// Using ECDSA signing algorithm
 	jwtToken, err := jwt.Parse(raw, func(jwtToken *jwt.Token) (interface{}, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, status.Errorf(codes.PermissionDenied, "Fail to decrypt token")
@@ -62,6 +65,7 @@ func DecodeToken(raw string, certificate *x509.Certificate) (claims *token.Claim
 	return mapToClaims(claimsMap), nil
 }
 
+// mapToClaims reconverts claimsMap into Claims object
 func mapToClaims(claimsMap jwt.MapClaims) *token.Claims {
 	claims := &token.Claims{
 		Issuer:  claimsMap["iss"].(string),

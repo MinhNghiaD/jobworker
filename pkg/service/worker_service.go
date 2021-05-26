@@ -62,7 +62,7 @@ func (server *WorkerServer) AddAuthentication(tlsConfig *tls.Config) {
 
 // AddAuthorization adds RBAC authorization to the server
 func (server *WorkerServer) AddAuthorization(tokenCert *x509.Certificate) {
-	authorizer := auth.NewRoleManager(server.jobsManager, tokenCert)
+	authorizer := auth.NewRoleManager(tokenCert)
 	server.opts = append(server.opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
 	server.opts = append(server.opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))
 }
@@ -91,12 +91,11 @@ func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*
 		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
 	}
 
-	userNames, _ := md["user"]
-	if len(userNames) == 0 {
+	if len(md["user"]) == 0 {
 		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
 	}
 
-	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, userNames[0])
+	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, md["user"][0])
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +113,7 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
 	}
 
-	userNames, _ := md["user"]
-	accessRights, _ := md["accessright"]
-	if len(userNames) == 0 || len(accessRights) == 0 {
+	if len(md["user"]) == 0 || len(md["accessright"]) == 0 {
 		return nil, status.Errorf(codes.PermissionDenied, "User doesn't have permission to stop job")
 	}
 
@@ -126,8 +123,8 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 	}
 
 	// Job can only be stopped by admin or its owner
-	canAccess, err := strconv.ParseBool(accessRights[0])
-	if err != nil || (userNames[0] != j.Owner() && !canAccess) {
+	canAccess, err := strconv.ParseBool(md["accessright"][0])
+	if err != nil || (md["user"][0] != j.Owner() && !canAccess) {
 		return nil, status.Errorf(codes.PermissionDenied, "User doesn't have permission to stop job")
 	}
 
@@ -164,9 +161,7 @@ func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto
 		return status.Errorf(codes.PermissionDenied, "User identity unknown")
 	}
 
-	userNames, _ := md["user"]
-	accessRights, _ := md["accessright"]
-	if len(userNames) == 0 || len(accessRights) == 0 {
+	if len(md["user"]) == 0 || len(md["accessright"]) == 0 {
 		return status.Errorf(codes.PermissionDenied, "User don't have permission to stream log of this job")
 	}
 
@@ -180,8 +175,8 @@ func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto
 	}
 
 	// Job can only be stopped by admin or its owner
-	canAccess, err := strconv.ParseBool(accessRights[0])
-	if err != nil || (userNames[0] != j.Owner() && !canAccess) {
+	canAccess, err := strconv.ParseBool(md["accessright"][0])
+	if err != nil || (md["user"][0] != j.Owner() && !canAccess) {
 		return status.Errorf(codes.PermissionDenied, "User don't have permission to stream log of this job")
 	}
 

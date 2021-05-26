@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
+// TestVerifyCertificate verifies mTLS authentication of the service can only performed between trusted parties
 func TestVerifyCertificate(t *testing.T) {
 	connectionCheck := func(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) error {
 		server, cli := initTestServerClient(t, serverTLSConfig, clientTLSConfig)
@@ -142,6 +142,7 @@ func TestVerifyProtocol(t *testing.T) {
 	server.AddAuthentication(serverCert.ServerTLSConfig())
 	go server.Serve()
 
+	// Init client 1 with valid certificate but supports only up to TLS 1.2
 	cli1Cert, err := auth.LoadCerts(
 		"../../assets/cert/user1_cert.pem",
 		"../../assets/cert/user1_key.pem",
@@ -169,6 +170,7 @@ func TestVerifyProtocol(t *testing.T) {
 		t.Errorf("Error %s, while expected error code %v", err, codes.Unavailable)
 	}
 
+	// Init client 2 without TLS
 	cli2, err := client.NewWithInsecure("127.0.0.1:7777")
 	if err != nil {
 		t.Error(err)
@@ -190,7 +192,8 @@ func TestVerifyProtocol(t *testing.T) {
 	})
 }
 
-// TestExpiration verifies the mTLS configuration accept only valid certificate
+// TestExpiration verifies the mTLS configuration accept only valid certificate.
+// It sets a fake time on the client TLS config so that it considered the server certificate to be expired
 func TestExpiration(t *testing.T) {
 	serverCert, err := auth.LoadCerts(
 		"../../assets/cert/server_cert.pem",
