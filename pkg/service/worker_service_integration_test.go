@@ -22,7 +22,12 @@ import (
 // Data race, Goroutine leak, deadlock and system crash can be detected by this test
 func TestSimulation(t *testing.T) {
 	rand.Seed(1420)
-	server, err := service.NewServer(7777)
+
+	serverCert, err := auth.LoadCerts(
+		"../../assets/cert/server_cert.pem",
+		"../../assets/cert/server_key.pem",
+		[]string{"../../assets/cert/client_ca_cert.pem"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +36,14 @@ func TestSimulation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.AddAuthorization(jwtCert)
 
+	server, err := service.NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.AddAuthentication(serverCert.ServerTLSConfig())
+	server.AddAuthorization(jwtCert)
 	go server.Serve()
 	defer server.Close()
 
@@ -96,9 +107,13 @@ func TestSimulation(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-			cli, err := client.NewWithInsecure("127.0.0.1:7777")
+			cliCert, err := auth.LoadCerts(
+				"../../assets/cert/user1_cert.pem",
+				"../../assets/cert/user1_key.pem",
+				[]string{"../../assets/cert/server_ca_cert.pem"},
+			)
 			if err != nil {
-				t.Errorf("Fail to init client %s", err)
+				t.Error(err)
 				return
 			}
 
@@ -106,6 +121,12 @@ func TestSimulation(t *testing.T) {
 			adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
 			if err != nil {
 				t.Error(err)
+				return
+			}
+
+			cli, err := client.NewWithTLS("127.0.0.1:7777", cliCert.ClientTLSConfig())
+			if err != nil {
+				t.Errorf("Fail to init client %s", err)
 				return
 			}
 

@@ -27,11 +27,8 @@ import (
 // TestStartJobs tests the creation of a jobs via grpc unary request
 func TestStartJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -128,11 +125,8 @@ func TestStartJobs(t *testing.T) {
 // The test fails when the job status of an exited job is not corresponding to the prediction.
 func TestQueryShortJob(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -272,11 +266,8 @@ func TestQueryShortJob(t *testing.T) {
 // The test fails when a job is not running when it was predicted
 func TestQueryLongJob(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -371,11 +362,8 @@ func TestQueryLongJob(t *testing.T) {
 // The test will verify the error code returned by the request, as well as the exit status of the job
 func TestStopJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -558,11 +546,8 @@ func TestStopJobs(t *testing.T) {
 // TestRequestBadJobs tests some of common unhappy cases, where the requests have bad arguments to be processed
 func TestRequestBadJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -641,11 +626,8 @@ func TestRequestBadJobs(t *testing.T) {
 // The test fails when clients fail to receive the logs or when the logs received by the clients are not the same.
 func TestStreaming(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -733,14 +715,22 @@ func TestStreaming(t *testing.T) {
 // If the call is success, it will return the server and client for testing.
 // If it fail, neither of them is returned
 func initTestServerClient(t *testing.T) (*service.WorkerServer, *client.Client) {
-	server, err := service.NewServer(7777)
+	serverCert, err := auth.LoadCerts(
+		"../../assets/cert/server_cert.pem",
+		"../../assets/cert/server_key.pem",
+		[]string{"../../assets/cert/client_ca_cert.pem"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cli, err := client.NewWithInsecure("127.0.0.1:7777")
+	cliCert, err := auth.LoadCerts(
+		"../../assets/cert/user1_cert.pem",
+		"../../assets/cert/user1_key.pem",
+		[]string{"../../assets/cert/server_ca_cert.pem"},
+	)
 	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
+		t.Fatal(err)
 	}
 
 	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
@@ -754,6 +744,17 @@ func initTestServerClient(t *testing.T) (*service.WorkerServer, *client.Client) 
 		t.Fatal(err)
 	}
 
+	server, err := service.NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := client.NewWithTLS("127.0.0.1:7777", cliCert.ClientTLSConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.AddAuthentication(serverCert.ServerTLSConfig())
 	server.AddAuthorization(jwtCert)
 	cli.UseToken(string(adminToken))
 

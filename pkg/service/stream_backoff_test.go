@@ -19,30 +19,8 @@ import (
 // The client will request the log stream from this job and use the number counted in the log as the sequence number.
 // We will simulate connection interruption and see if the client is capable of resuming the stream.
 func TestStreamBackoff(t *testing.T) {
-	server, err := NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
-	if err != nil {
-		t.Fatal(err)
-	}
-	server.AddAuthorization(jwtCert)
+	server, cli := initTestServerClient(t)
 	go server.Serve()
-
-	cli, err := client.NewWithInsecure("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
-	// Using admin to initiate certain jobs for other user testing
-	adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cli.UseToken(string(adminToken))
 
 	defer t.Cleanup(func() {
 		server.Close()
@@ -124,4 +102,54 @@ func TestStreamBackoff(t *testing.T) {
 			}
 		}
 	}
+}
+
+// initTestServerClient creates test server and test client.
+// If the call is success, it will return the server and client for testing.
+// If it fail, neither of them is returned
+func initTestServerClient(t *testing.T) (*WorkerServer, *client.Client) {
+	serverCert, err := auth.LoadCerts(
+		"../../assets/cert/server_cert.pem",
+		"../../assets/cert/server_key.pem",
+		[]string{"../../assets/cert/client_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cliCert, err := auth.LoadCerts(
+		"../../assets/cert/user1_cert.pem",
+		"../../assets/cert/user1_key.pem",
+		[]string{"../../assets/cert/server_ca_cert.pem"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Using admin to initiate certain jobs for other user testing
+	adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := client.NewWithTLS("127.0.0.1:7777", cliCert.ClientTLSConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.AddAuthentication(serverCert.ServerTLSConfig())
+	server.AddAuthorization(jwtCert)
+	cli.UseToken(string(adminToken))
+
+	return server, cli
 }
