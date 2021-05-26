@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -29,8 +30,14 @@ func TestRBAC(t *testing.T) {
 	server.AddAuthorization(jwtCert)
 	go server.Serve()
 
-	// TODO load admin token
+	// Using admin to initiate certain jobs for other user testing
+	adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
+	if err != nil {
+		t.Error(err)
+	}
 	admin, err := client.NewWithInsecure("127.0.0.1:7777")
+	admin.UseToken(string(adminToken))
+
 	if err != nil {
 		t.Error(err)
 		return
@@ -43,13 +50,13 @@ func TestRBAC(t *testing.T) {
 
 	type action *func(*client.Client) error
 	rbacCheck := func(t *testing.T, rawToken string, expectedErrors map[action]codes.Code) {
-		// TODO setup token
 		cli, err := client.NewWithInsecure("127.0.0.1:7777")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
+		cli.UseToken(rawToken)
 		defer cli.Close()
 
 		for act, expectedCode := range expectedErrors {
@@ -175,9 +182,12 @@ func TestRBAC(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
-			// TODO load token
-			rawToken := ""
-			rbacCheck(t, rawToken, testCase.expectedErrors)
+			rawToken, err := ioutil.ReadFile(testCase.tokenFile)
+			if err != nil {
+				t.Error(err)
+			}
+
+			rbacCheck(t, string(rawToken), testCase.expectedErrors)
 		})
 	}
 }

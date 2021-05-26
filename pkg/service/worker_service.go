@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -60,7 +62,7 @@ func (server *WorkerServer) AddAuthentication(tlsConfig *tls.Config) {
 
 // AddAuthorization adds RBAC authorization to the server
 func (server *WorkerServer) AddAuthorization(tokenCert *x509.Certificate) {
-	authorizer := auth.NewRoleManager(server.jobsManager)
+	authorizer := auth.NewRoleManager(server.jobsManager, tokenCert)
 	server.opts = append(server.opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
 	server.opts = append(server.opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))
 }
@@ -84,7 +86,17 @@ func (server *WorkerServer) Close() error {
 
 // StartJob starts a job corresponding to user request
 func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
+	}
+
+	userNames, _ := md["user"]
+	if len(userNames) == 0 {
+		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
+	}
+
+	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, userNames[0])
 	if err != nil {
 		return nil, err
 	}
@@ -97,9 +109,26 @@ func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*
 // StopJob terminates a job specified by user request.
 // It returns an error when the internal service is not ready, the job id is not valid or the stop is failed to stop
 func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.PermissionDenied, "User identity unknown")
+	}
+
+	userNames, _ := md["user"]
+	accessRights, _ := md["accessright"]
+	if len(userNames) == 0 || len(accessRights) == 0 {
+		return nil, status.Errorf(codes.PermissionDenied, "User doesn't have permission to stop job")
+	}
+
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
 		return nil, job.ReportError(codes.NotFound, "Fail to stop job", "job", "Job ID is not correct")
+	}
+
+	// Job can only be stopped by admin or its owner
+	canAccess, err := strconv.ParseBool(accessRights[0])
+	if err != nil || (userNames[0] != j.Owner() && !canAccess) {
+		return nil, status.Errorf(codes.PermissionDenied, "User doesn't have permission to stop job")
 	}
 
 	if err := j.Stop(request.Force); err != nil {
@@ -110,6 +139,7 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 }
 
 // QueryJob returns the status of a job. It returns an error in case the internal service is not ready or the job id is not valid
+// In the system, any user with a valid role can query job
 func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
@@ -127,6 +157,19 @@ func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (
 // It receives user request, which indicates the job that they want to retrieve the log, and the nb of sequence that the stream should start from.
 // The starting point is typically used for connection backoff
 func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto.WorkerService_StreamLogServer) error {
+	ctx := stream.Context()
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Errorf(codes.PermissionDenied, "User identity unknown")
+	}
+
+	userNames, _ := md["user"]
+	accessRights, _ := md["accessright"]
+	if len(userNames) == 0 || len(accessRights) == 0 {
+		return status.Errorf(codes.PermissionDenied, "User don't have permission to stream log of this job")
+	}
+
 	if server.jobsManager == nil {
 		return status.Errorf(codes.Unavailable, "Job Managers is not ready")
 	}
@@ -136,7 +179,12 @@ func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto
 		return job.ReportError(codes.NotFound, "Fail to stream log", "job", "Job ID is not correct")
 	}
 
-	ctx := stream.Context()
+	// Job can only be stopped by admin or its owner
+	canAccess, err := strconv.ParseBool(accessRights[0])
+	if err != nil || (userNames[0] != j.Owner() && !canAccess) {
+		return status.Errorf(codes.PermissionDenied, "User don't have permission to stream log of this job")
+	}
+
 	logReader, err := j.GetLogReader(ctx)
 	if err != nil {
 		return err

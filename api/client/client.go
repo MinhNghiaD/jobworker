@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -21,6 +22,7 @@ type Client struct {
 	connection *grpc.ClientConn
 	stub       proto.WorkerServiceClient
 	tlsConfig  *tls.Config
+	token      string
 }
 
 // NewWithTLS create new Client with TLS connection
@@ -63,27 +65,39 @@ func NewWithInsecure(address string) (*Client, error) {
 }
 
 // Close closes the gRpc connection
+func (c *Client) UseToken(rawToken string) {
+	c.token = rawToken
+}
+
+// Close closes the gRpc connection
 func (c *Client) Close() error {
 	return c.connection.Close()
 }
 
 // StartJob starts a job on the server
 func (c *Client) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
+	ctx = attachTokenToContext(ctx, c.token)
+
 	return c.stub.StartJob(ctx, cmd)
 }
 
 // QueryJob queries the status of a job on the server
 func (c *Client) QueryJob(ctx context.Context, j *proto.Job) (*proto.JobStatus, error) {
+	ctx = attachTokenToContext(ctx, c.token)
+
 	return c.stub.QueryJob(ctx, j)
 }
 
 // StopJob stop a job on the server and return its status
 func (c *Client) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
+	ctx = attachTokenToContext(ctx, c.token)
+
 	return c.stub.StopJob(ctx, request)
 }
 
 // GetLogReceiver returns a LogReceiver that can read log stream line by line
 func (c *Client) GetLogReceiver(ctx context.Context, j *proto.Job) (*LogReceiver, error) {
+	ctx = attachTokenToContext(ctx, c.token)
 	stream, err := c.stub.StreamLog(ctx, &proto.StreamRequest{
 		Job:        j,
 		StartPoint: 0,
@@ -201,4 +215,12 @@ func clientDialOptions() []grpc.DialOption {
 	opts = append(opts, grpc.WithConnectParams(connectParameters))
 
 	return opts
+}
+
+func attachTokenToContext(ctx context.Context, token string) context.Context {
+	md := metadata.New(map[string]string{
+		"token": token,
+	})
+
+	return metadata.NewOutgoingContext(ctx, md)
 }

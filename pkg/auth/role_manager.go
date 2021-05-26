@@ -65,7 +65,7 @@ var (
 		},
 		// system.observer role can only Query jobs
 		"system.observer": map[string]AccessRight{
-			"/proto.WorkerService/StreamLog": {
+			"/proto.WorkerService/QueryJob": {
 				api:       "/proto.WorkerService/QueryJob",
 				accessAll: true,
 			},
@@ -79,11 +79,11 @@ type RoleManager struct {
 	jwtCert     *x509.Certificate
 }
 
-func NewRoleManager(jobsManager job.JobsManager) *RoleManager {
+func NewRoleManager(jobsManager job.JobsManager, cert *x509.Certificate) *RoleManager {
 	return &RoleManager{
 		accessesMap: defaultRoles,
 		jobsManager: jobsManager,
-		jwtCert:     nil,
+		jwtCert:     cert,
 	}
 }
 
@@ -136,7 +136,7 @@ func (manager *RoleManager) authorize(ctx context.Context, api string) (context.
 	// Append user metatdata to the context
 	md := metadata.New(map[string]string{
 		"user":        claims.Subject,
-		"accessRight": fmt.Sprintf("%v", right.accessAll),
+		"accessright": fmt.Sprintf("%v", right.accessAll),
 	})
 
 	return metadata.NewIncomingContext(ctx, md), nil
@@ -151,7 +151,7 @@ func (manager *RoleManager) lookupAccessRight(claims *token.Claims, api string) 
 		}
 	}
 
-	return nil, fmt.Errorf("User don't have claim to this API")
+	return nil, fmt.Errorf("User don't have claim to API %s", api)
 }
 
 func getClaimFromContext(ctx context.Context, certificate *x509.Certificate) (*token.Claims, error) {

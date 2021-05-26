@@ -26,7 +26,17 @@ func GenerateToken(claim *token.Claims, certificate tls.Certificate) (string, er
 	return token.Token(claim, &sig, &opts)
 }
 
-func DecodeToken(raw string, certificate *x509.Certificate) (*token.Claims, error) {
+func DecodeToken(raw string, certificate *x509.Certificate) (claims *token.Claims, err error) {
+	if certificate == nil {
+		return nil, fmt.Errorf("certificate is not provided")
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Decode is panic")
+		}
+	}()
+
 	// Using ECDSA key
 	jwtToken, err := jwt.Parse(raw, func(jwtToken *jwt.Token) (interface{}, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodECDSA); !ok {
