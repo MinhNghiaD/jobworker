@@ -29,6 +29,8 @@ type Job interface {
 	Status() *proto.JobStatus
 	// GetLogReader returns the log reader that has read-only access to log file
 	GetLogReader(ctx context.Context) (log.Reader, error)
+	// Owner returns the owner who created this job
+	Owner() string
 }
 
 // TODO Handle QUEUING state when job queue and scheduler is implemented
@@ -240,6 +242,10 @@ func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
 	}
 
 	return reader, nil
+}
+
+func (j *Impl) Owner() string {
+	return j.owner
 }
 
 // String returns the command wrapped by the job

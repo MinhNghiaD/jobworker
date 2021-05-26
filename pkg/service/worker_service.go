@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
+	"github.com/MinhNghiaD/jobworker/pkg/auth"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -27,6 +28,7 @@ type WorkerServer struct {
 	grpcServer  *grpc.Server
 	listener    net.Listener
 	jobsManager job.JobsManager
+	authorizer  *auth.RoleManager
 	tlsConfig   *tls.Config
 }
 
@@ -44,16 +46,21 @@ func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
-	grpcServer := grpc.NewServer(opts...)
 	jobsManager, err := job.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
+	// Add authorizatuib control
+	authorizer := auth.NewRoleManager(jobsManager)
+	opts = append(opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
+	opts = append(opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))
+
 	return &WorkerServer{
-		grpcServer:  grpcServer,
+		grpcServer:  grpc.NewServer(opts...),
 		listener:    listener,
 		jobsManager: jobsManager,
+		authorizer:  authorizer,
 		tlsConfig:   tlsConfig,
 	}, nil
 }

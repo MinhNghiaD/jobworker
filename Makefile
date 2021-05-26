@@ -28,9 +28,9 @@ build:
 	@-$(MAKE) proto
 	@-$(MAKE) update-vendor
 	@-$(MAKE) cert
-	@-$(MAKE) token
 	@echo "  >  Building binary..."
 	@go build -o $(BIN)/ ./...
+	@-$(MAKE) token
 
 .PHONY: test
 test-log:	

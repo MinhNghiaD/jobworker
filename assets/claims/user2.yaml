@@ -1,5 +1,5 @@
 name: User 2
 sub: user2@jobworker.com
 email: user2@jobworker.com
-roles: ["user"]
+roles: ["system.user"]
 groups: ["job_worker"]
