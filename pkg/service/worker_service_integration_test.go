@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
+	"github.com/MinhNghiaD/jobworker/pkg/auth"
 	"github.com/MinhNghiaD/jobworker/pkg/service"
 	"github.com/sirupsen/logrus"
 )
@@ -24,6 +26,12 @@ func TestSimulation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.AddAuthorization(jwtCert)
 
 	go server.Serve()
 	defer server.Close()
@@ -88,14 +96,21 @@ func TestSimulation(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-
-			client, err := client.NewWithInsecure("127.0.0.1:7777")
+			cli, err := client.NewWithInsecure("127.0.0.1:7777")
 			if err != nil {
 				t.Errorf("Fail to init client %s", err)
 				return
 			}
 
-			defer client.Close()
+			// Using admin to initiate certain jobs for other user testing
+			adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			cli.UseToken(string(adminToken))
+			defer cli.Close()
 
 			for j := 0; j < 50; j++ {
 				switch rand.Int() % 3 {
@@ -108,7 +123,7 @@ func TestSimulation(t *testing.T) {
 						Args: testcase.args,
 					}
 
-					job, err := client.StartJob(context.Background(), cmd)
+					job, err := cli.StartJob(context.Background(), cmd)
 					if err != nil {
 						logrus.Warningf("Fail to start job, %s", err)
 					} else {
@@ -123,11 +138,11 @@ func TestSimulation(t *testing.T) {
 						Force: false,
 					}
 
-					status, err := client.StopJob(context.Background(), request)
+					jobStatus, err := cli.StopJob(context.Background(), request)
 					if err != nil {
 						logrus.Warningf("Fail to stop job, %s", err)
 					} else {
-						logrus.Infof("Stop job, status %s", status)
+						logrus.Infof("Stop job, status %s", jobStatus)
 					}
 				case 2:
 					// Query job
@@ -135,11 +150,11 @@ func TestSimulation(t *testing.T) {
 						Id: jobIDs.RandomID(),
 					}
 
-					status, err := client.QueryJob(context.Background(), job)
+					jobStatus, err := cli.QueryJob(context.Background(), job)
 					if err != nil {
 						logrus.Warningf("Fail to query job, %s", err)
 					} else {
-						logrus.Infof("Query job, status %s", status)
+						logrus.Infof("Query job, status %s", jobStatus)
 					}
 				}
 			}
@@ -147,7 +162,7 @@ func TestSimulation(t *testing.T) {
 			// Stream log for 5 seconds after finished all uniary operations
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			receiver, err := client.GetLogReceiver(ctx, &proto.Job{Id: jobIDs.RandomID()})
+			receiver, err := cli.GetLogReceiver(ctx, &proto.Job{Id: jobIDs.RandomID()})
 			for err == nil {
 				_, err = receiver.Read()
 			}

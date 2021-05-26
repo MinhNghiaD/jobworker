@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net"
 	"strconv"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
+	"github.com/MinhNghiaD/jobworker/pkg/auth"
 )
 
 // This test is internal test of connection backoff implementation. This test start a job that counting number from 0.
@@ -22,16 +24,29 @@ func TestStreamBackoff(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.AddAuthorization(jwtCert)
 	go server.Serve()
 
-	c, err := client.NewWithInsecure("127.0.0.1:7777")
+	cli, err := client.NewWithInsecure("127.0.0.1:7777")
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
 
+	// Using admin to initiate certain jobs for other user testing
+	adminToken, err := ioutil.ReadFile("../../assets/jwt/admin.jwt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli.UseToken(string(adminToken))
+
 	defer t.Cleanup(func() {
 		server.Close()
-		c.Close()
+		cli.Close()
 	})
 
 	// start a job that count from 0 to 1000 then use it to compare the sequence received by the stream receiver
@@ -40,7 +55,7 @@ func TestStreamBackoff(t *testing.T) {
 		Args: []string{"-c", "for i in `seq 0 1000`; do echo $i; sleep 0.01; done"},
 	}
 
-	j, err := c.StartJob(context.Background(), command)
+	j, err := cli.StartJob(context.Background(), command)
 	if err != nil {
 		t.Error(err)
 	}
@@ -49,7 +64,7 @@ func TestStreamBackoff(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	receiver, err := c.GetLogReceiver(ctx, j)
+	receiver, err := cli.GetLogReceiver(ctx, j)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,6 +106,7 @@ func TestStreamBackoff(t *testing.T) {
 			break
 		}
 
+		// Verify sequence received by the client
 		var data map[string]string
 		if err := json.Unmarshal([]byte(line.Entry), &data); err != nil {
 			t.Errorf("Fail to decode json format, data %s", line.Entry)
