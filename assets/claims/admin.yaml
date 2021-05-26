@@ -1,0 +1,5 @@
+name: Admin 1
+sub: admin@jobworker.com
+email: admin@jobworker.com
+roles: ["admin"]
+groups: ["job_worker"]

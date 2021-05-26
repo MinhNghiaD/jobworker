@@ -57,11 +57,12 @@ For this service, 256-bit ECDSA is reasonable choice for private key and certifi
 To generate the template certificates for testing, please run `make cert`
 
 #### Authorization
-For authorization, we use Role-based access control to limit user access. The current roles supported are:
+For authorization, we use Role-based access control with JWT to limit user access. The current roles supported are:
 * Admin: Gain access right to start/stop/query/stream all jobs in the system.
-* Observer: Gain read-only access to query job status and stream log.
+* User: Gain access right to start/query jobs but can only stop or stream log their created jobs.
+* Observer: Gain read-only access to query job status.
 
-As a tradeoff of this project, we borrow the organizational_unit field of the x.509 certificate to encode the value of user role. For future implementation, RBAC should be implement properly with credential-based authorization.
+The role will be requested by user using a .yaml file. This file will be then review by system admins. If the request is accepted, a corresponding token is generated, signed by the token signing private key. This private key is used for token signing only. Token verification will be done using the public key. 
 
 
 ### Usage
@@ -79,6 +80,7 @@ Flags:
   --cert=server_cert.pem server certificate
   --key=server_key.pem   server private key
   --ca                   list of trusted client certificate authorities.
+  --tokenkey             public key for token verification
 
 ```
 
@@ -95,7 +97,7 @@ Flags:
   --cert=client_cert.pem client certificate
   --key=client_key.pem   client private key
   --ca                   server certificate authority
-
+  --token                the RBAC token attributed to the user
 Commands:
   help [<command>...]
     Show help.
