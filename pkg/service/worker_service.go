@@ -10,7 +10,6 @@ import (
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
@@ -67,7 +66,7 @@ func (server *WorkerServer) Close() error {
 
 // StartJob starts a job corresponding to user request
 func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	// TODO Get Owner common name from certificate
+	// TODO Get Owner common name from RBAC
 	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
 		return nil, err
@@ -83,16 +82,7 @@ func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*
 func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to stop job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to stop job", "job", "Job ID is not correct")
 	}
 
 	if err := j.Stop(request.Force); err != nil {
@@ -106,16 +96,7 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to query job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to query job", "job", "Job ID is not correct")
 	}
 
 	return j.Status(), nil
@@ -135,16 +116,7 @@ func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto
 
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return job.ReportError(codes.NotFound, "Fail to stream log", badRequest)
+		return job.ReportError(codes.NotFound, "Fail to stream log", "job", "Job ID is not correct")
 	}
 
 	ctx := stream.Context()
