@@ -4,33 +4,24 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/MinhNghiaD/jobworker/pkg/auth"
 	token "github.com/libopenstorage/openstorage-sdk-auth/pkg/auth"
-	"github.com/stretchr/testify/assert"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 func TestToken(t *testing.T) {
-	certificate, err := tls.LoadX509KeyPair("../../assets/cert/jwt_cert.pem", "../../assets/cert/jwt_key.pem")
+	keyPair, err := tls.LoadX509KeyPair("../../assets/cert/jwt_cert.pem", "../../assets/cert/jwt_key.pem")
 	if err != nil {
 		t.Error(err)
 	}
 
-	claims := &token.Claims{
-		Email: "my@email.com",
-		Name:  "myname",
-		Roles: []string{"hello"},
-	}
-
-	// Create
-	rawtoken, err := auth.GenerateToken(claims, certificate)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, rawtoken)
-
-	// Verify
 	pemServer, err := ioutil.ReadFile("../../assets/cert/jwt_cert.pem")
 	if err != nil {
 		t.Fatal(err)
@@ -46,12 +37,74 @@ func TestToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	convertedClaims, err := auth.DecodeToken(rawtoken, cert)
-	if err != nil {
-		t.Fatal(err)
+	checker := func(fileName string) error {
+		claimFile, err := os.Open(fileName)
+		if err != nil {
+			return err
+		}
+
+		defer claimFile.Close()
+
+		// Start YAML decoding from file
+		decoder := yaml.NewDecoder(claimFile)
+		var claims token.Claims
+		if err := decoder.Decode(&claims); err != nil {
+			return err
+		}
+
+		rawtoken, err := auth.GenerateToken(&claims, keyPair)
+		if err != nil {
+			return err
+		}
+
+		// Verify
+		convertedClaims, err := auth.DecodeToken(rawtoken, cert)
+		if err != nil {
+			return err
+		}
+
+		if !reflect.DeepEqual(*convertedClaims, claims) {
+			logrus.Info(convertedClaims)
+			logrus.Info("!=")
+			logrus.Info(claims)
+			return fmt.Errorf("Conversion wrong")
+		}
+
+		return nil
 	}
 
-	if !reflect.DeepEqual(convertedClaims, claims) {
-		t.Error("Conversion wrong")
+	testcases := []struct {
+		name      string
+		claimFile string
+	}{
+		{
+			"user",
+			"../../assets/claims/user.yaml",
+		},
+		{
+			"admin",
+			"../../assets/claims/admin.yaml",
+		},
+		{
+			"observer",
+			"../../assets/claims/observer.yaml",
+		},
+		{
+			"user2",
+			"../../assets/claims/user2.yaml",
+		},
+		{
+			"unknown",
+			"../../assets/claims/unknown_role.yaml",
+		},
+	}
+
+	for _, testCase := range testcases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if err := checker(testCase.claimFile); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
