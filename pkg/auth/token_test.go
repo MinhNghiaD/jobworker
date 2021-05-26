@@ -2,10 +2,7 @@ package auth_test
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -22,20 +19,7 @@ func TestToken(t *testing.T) {
 		t.Error(err)
 	}
 
-	pemServer, err := ioutil.ReadFile("../../assets/cert/jwt_cert.pem")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	block, _ := pem.Decode(pemServer)
-	if block == nil {
-		t.Fatal("failed to parse certificate PEM")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	cert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
 
 	checker := func(fileName string) error {
 		claimFile, err := os.Open(fileName)

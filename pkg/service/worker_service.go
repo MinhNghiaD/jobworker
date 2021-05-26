@@ -51,7 +51,7 @@ func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
 		return nil, err
 	}
 
-	// Add authorizatuib control
+	// Add authorization control
 	authorizer := auth.NewRoleManager(jobsManager)
 	opts = append(opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
 	opts = append(opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))

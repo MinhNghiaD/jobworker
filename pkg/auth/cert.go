@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -70,4 +71,18 @@ func (cert *Certs) ClientTLSConfig() *tls.Config {
 			tls.TLS_CHACHA20_POLY1305_SHA256,
 		},
 	}
+}
+
+func ReaderCertFile(certFile string) (*x509.Certificate, error) {
+	certPem, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(certPem)
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse certificate PEM")
+	}
+
+	return x509.ParseCertificate(block.Bytes)
 }

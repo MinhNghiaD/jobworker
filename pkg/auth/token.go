@@ -8,6 +8,8 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	token "github.com/libopenstorage/openstorage-sdk-auth/pkg/auth"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func GenerateToken(claim *token.Claims, certificate tls.Certificate) (string, error) {
@@ -28,19 +30,23 @@ func DecodeToken(raw string, certificate *x509.Certificate) (*token.Claims, erro
 	// Using ECDSA key
 	jwtToken, err := jwt.Parse(raw, func(jwtToken *jwt.Token) (interface{}, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodECDSA); !ok {
-			return nil, fmt.Errorf("unexpected method: %s", jwtToken.Header["alg"])
+			return nil, status.Errorf(codes.PermissionDenied, "Fail to decrypt token")
 		}
 
 		return certificate.PublicKey, nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.PermissionDenied, err.Error())
+	}
+
+	if !jwtToken.Valid {
+		return nil, status.Errorf(codes.PermissionDenied, "Token expired")
 	}
 
 	claimsMap, ok := jwtToken.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, fmt.Errorf("Cannot get claims")
+		return nil, status.Errorf(codes.PermissionDenied, "Fail to get claims")
 	}
 
 	return mapToClaims(claimsMap), nil
