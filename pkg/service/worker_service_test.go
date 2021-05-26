@@ -25,11 +25,8 @@ import (
 // TestStartJobs tests the creation of a jobs via grpc unary request
 func TestStartJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -126,11 +123,8 @@ func TestStartJobs(t *testing.T) {
 // The test fails when the job status of an exited job is not corresponding to the prediction.
 func TestQueryShortJob(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -270,11 +264,8 @@ func TestQueryShortJob(t *testing.T) {
 // The test fails when a job is not running when it was predicted
 func TestQueryLongJob(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -369,11 +360,8 @@ func TestQueryLongJob(t *testing.T) {
 // The test will verify the error code returned by the request, as well as the exit status of the job
 func TestStopJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -556,11 +544,8 @@ func TestStopJobs(t *testing.T) {
 // TestRequestBadJobs tests some of common unhappy cases, where the requests have bad arguments to be processed
 func TestRequestBadJobs(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()
@@ -639,11 +624,8 @@ func TestRequestBadJobs(t *testing.T) {
 // The test fails when clients fail to receive the logs or when the logs received by the clients are not the same.
 func TestStreaming(t *testing.T) {
 	server, cli := initTestServerClient(t)
-	if server == nil || cli == nil {
-		t.FailNow()
-	}
-
 	go server.Serve()
+
 	defer t.Cleanup(func() {
 		server.Close()
 		cli.Close()

@@ -17,17 +17,8 @@ import (
 // The client will request the log stream from this job and use the number counted in the log as the sequence number.
 // We will simulate connection interruption and see if the client is capable of resuming the stream.
 func TestStreamBackoff(t *testing.T) {
-	server, err := NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	server, cli := initTestServerClient(t)
 	go server.Serve()
-
-	cli, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
 
 	defer t.Cleanup(func() {
 		server.Close()
@@ -109,4 +100,21 @@ func TestStreamBackoff(t *testing.T) {
 			}
 		}
 	}
+}
+
+// initTestServerClient creates test server and test client.
+// If the call is success, it will return the server and client for testing.
+// If it fail, neither of them is returned
+func initTestServerClient(t *testing.T) (*WorkerServer, *client.Client) {
+	server, err := NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := client.New("127.0.0.1:7777")
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	return server, cli
 }
