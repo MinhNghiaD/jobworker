@@ -45,18 +45,23 @@ func main() {
 
 	switch subCommand {
 	case start.FullCommand():
-		startJob(cli, *startCmd, *startArgs)
+		err = startJob(cli, *startCmd, *startArgs)
 	case stop.FullCommand():
-		stopJob(cli, *stoppingJob, *stopForce)
+		err = stopJob(cli, *stoppingJob, *stopForce)
 	case query.FullCommand():
-		queryJob(cli, *queriedJob)
+		err = queryJob(cli, *queriedJob)
 	default:
-		logrus.Warning("Unknown subcommand")
+		logrus.Fatal("Unknown subcommand")
+	}
+
+	if err != nil {
+		reportError(err)
+		logrus.Exit(1)
 	}
 }
 
 // startJob using the gRPC client to start a job with the correspodning command on the server
-func startJob(c *client.Client, cmd string, args []string) {
+func startJob(c *client.Client, cmd string, args []string) error {
 	command := &proto.Command{
 		Cmd:  cmd,
 		Args: args,
@@ -67,15 +72,15 @@ func startJob(c *client.Client, cmd string, args []string) {
 
 	j, err := c.StartJob(ctx, command)
 	if err != nil {
-		reportError(err)
-		logrus.Exit(1)
+		return err
 	}
 
 	fmt.Printf("Start job successfully, job ID: %s\n", j.Id)
+	return nil
 }
 
 // stopJob stops the corresponding job with force option
-func stopJob(c *client.Client, jobID string, force bool) {
+func stopJob(c *client.Client, jobID string, force bool) error {
 	request := &proto.StopRequest{
 		Job:   &proto.Job{Id: jobID},
 		Force: force,
@@ -83,28 +88,28 @@ func stopJob(c *client.Client, jobID string, force bool) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	st, err := c.StopJob(ctx, request)
 
+	st, err := c.StopJob(ctx, request)
 	if err != nil {
-		reportError(err)
-		logrus.Exit(1)
+		return err
 	}
 
 	printJobStatus(st)
+	return nil
 }
 
 // queryJob queries the status of a job specified by jobID
-func queryJob(c *client.Client, jobID string) {
+func queryJob(c *client.Client, jobID string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
-	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 
+	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 	if err != nil {
-		reportError(err)
-		logrus.Exit(1)
+		return err
 	}
 
 	printJobStatus(st)
+	return nil
 }
 
 // printJobStatus displays the job status
