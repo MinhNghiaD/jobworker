@@ -24,21 +24,15 @@ import (
 
 // TestStartJobs tests the creation of a jobs via grpc unary request
 func TestStartJobs(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	// checker
@@ -48,7 +42,7 @@ func TestStartJobs(t *testing.T) {
 			Args: args,
 		}
 
-		_, err := client.StartJob(context.Background(), command)
+		_, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -131,21 +125,15 @@ func TestStartJobs(t *testing.T) {
 // TestQueryShortJob tests status verification of short-running command. It will polling until the job exited normally and examined it status.
 // The test fails when the job status of an exited job is not corresponding to the prediction.
 func TestQueryShortJob(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	// checker
@@ -155,7 +143,7 @@ func TestQueryShortJob(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -165,7 +153,7 @@ func TestQueryShortJob(t *testing.T) {
 		var jobStatus *proto.JobStatus
 		for i := 0; i < 100; i++ {
 			time.Sleep(10 * time.Millisecond)
-			jobStatus, err = client.QueryJob(context.Background(), job)
+			jobStatus, err = cli.QueryJob(context.Background(), job)
 			if err != nil {
 				return err
 			}
@@ -281,21 +269,15 @@ func TestQueryShortJob(t *testing.T) {
 // TestQueryLongJob tests status verification of long-running command. It will polling to see if the jon is still running.
 // The test fails when a job is not running when it was predicted
 func TestQueryLongJob(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	// checker
@@ -305,7 +287,7 @@ func TestQueryLongJob(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -314,7 +296,7 @@ func TestQueryLongJob(t *testing.T) {
 
 		for i := 1; i < 100; i++ {
 			time.Sleep(10 * time.Millisecond)
-			jobStatus, err := client.QueryJob(context.Background(), job)
+			jobStatus, err := cli.QueryJob(context.Background(), job)
 			if err != nil {
 				return err
 			}
@@ -386,21 +368,15 @@ func TestQueryLongJob(t *testing.T) {
 // TestStopJobs tests the request to stop a job and query their exit status via grpc unary request.
 // The test will verify the error code returned by the request, as well as the exit status of the job
 func TestStopJobs(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	// checker
@@ -410,7 +386,7 @@ func TestStopJobs(t *testing.T) {
 			Args: args,
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			return err
 		}
@@ -418,7 +394,7 @@ func TestStopJobs(t *testing.T) {
 		logrus.Infof("Started job %s", job)
 		time.Sleep(time.Second)
 
-		jobStatus, err := client.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
+		jobStatus, err := cli.StopJob(context.Background(), &proto.StopRequest{Job: job, Force: force})
 		if err != nil {
 			return err
 		}
@@ -579,21 +555,15 @@ func TestStopJobs(t *testing.T) {
 
 // TestRequestBadJobs tests some of common unhappy cases, where the requests have bad arguments to be processed
 func TestRequestBadJobs(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	t.Run("Normal execution", func(t *testing.T) {
@@ -603,12 +573,12 @@ func TestRequestBadJobs(t *testing.T) {
 			Args: []string{"-b"},
 		}
 
-		job, err := client.StartJob(context.Background(), command)
+		job, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			t.Error(err)
 		}
 
-		jobStatus, err := client.QueryJob(context.Background(), job)
+		jobStatus, err := cli.QueryJob(context.Background(), job)
 		if err != nil {
 			t.Error(err)
 		}
@@ -620,7 +590,7 @@ func TestRequestBadJobs(t *testing.T) {
 
 	t.Run("Query wrong id", func(t *testing.T) {
 		t.Parallel()
-		_, err := client.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
+		_, err := cli.QueryJob(context.Background(), &proto.Job{Id: uuid.New().String()})
 
 		if err == nil {
 			t.Error("Reported no error when error is expected")
@@ -634,7 +604,7 @@ func TestRequestBadJobs(t *testing.T) {
 
 	t.Run("Stop wrong id", func(t *testing.T) {
 		t.Parallel()
-		_, err := client.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: false})
+		_, err := cli.StopJob(context.Background(), &proto.StopRequest{Job: &proto.Job{Id: uuid.New().String()}, Force: false})
 
 		if err == nil {
 			t.Error("Reported no error when error is expected")
@@ -648,7 +618,7 @@ func TestRequestBadJobs(t *testing.T) {
 
 	t.Run("Stream wrong id", func(t *testing.T) {
 		t.Parallel()
-		receiver, err := client.GetLogReceiver(context.Background(), &proto.Job{Id: uuid.New().String()})
+		receiver, err := cli.GetLogReceiver(context.Background(), &proto.Job{Id: uuid.New().String()})
 		for err == nil {
 			_, err = receiver.Read()
 		}
@@ -668,21 +638,15 @@ func TestRequestBadJobs(t *testing.T) {
 // and there are multiple clients request to receive its log.
 // The test fails when clients fail to receive the logs or when the logs received by the clients are not the same.
 func TestStreaming(t *testing.T) {
-	server, err := service.NewServer(7777)
-	if err != nil {
-		t.Fatal(err)
+	server, cli := initTestServerClient(t)
+	if server == nil || cli == nil {
+		t.FailNow()
 	}
 
 	go server.Serve()
-
-	client, err := client.New("127.0.0.1:7777")
-	if err != nil {
-		t.Fatalf("Fail to init client %s", err)
-	}
-
 	defer t.Cleanup(func() {
 		server.Close()
-		client.Close()
+		cli.Close()
 	})
 
 	// checker
@@ -692,7 +656,7 @@ func TestStreaming(t *testing.T) {
 			Args: args,
 		}
 
-		j, err := client.StartJob(context.Background(), command)
+		j, err := cli.StartJob(context.Background(), command)
 		if err != nil {
 			t.Error(err)
 		}
@@ -707,7 +671,7 @@ func TestStreaming(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				receiver, err := client.GetLogReceiver(ctx, j)
+				receiver, err := cli.GetLogReceiver(ctx, j)
 				if err != nil {
 					t.Error(err)
 				}
@@ -718,7 +682,7 @@ func TestStreaming(t *testing.T) {
 
 		// Let the jobs run for 5 seconds
 		time.Sleep(5 * time.Second)
-		client.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
+		cli.StopJob(context.Background(), &proto.StopRequest{Job: j, Force: forceStop})
 		wg.Wait()
 
 		checkResults(t, logResults)
@@ -761,6 +725,23 @@ func TestStreaming(t *testing.T) {
 			checkStream(t, testCase.cmd, testCase.args, testCase.forceStop)
 		})
 	}
+}
+
+// initTestServerClient creates test server and test client.
+// If the call is success, it will return the server and client for testing.
+// If it fail, neither of them is returned
+func initTestServerClient(t *testing.T) (*service.WorkerServer, *client.Client) {
+	server, err := service.NewServer(7777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := client.New("127.0.0.1:7777")
+	if err != nil {
+		t.Fatalf("Fail to init client %s", err)
+	}
+
+	return server, client
 }
 
 // readLog reads logs from the job
