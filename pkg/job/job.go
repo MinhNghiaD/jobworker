@@ -12,7 +12,6 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/runtime/protoiface"
 
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/log"
@@ -70,17 +69,7 @@ func (j *Impl) Start() error {
 	err := j.cmd.Start()
 	if err != nil {
 		j.changeState(proto.ProcessState_STOPPED)
-
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "command",
-					Description: err.Error(),
-				},
-			},
-		}
-
-		return ReportError(codes.PermissionDenied, "Fail to start job", badRequest)
+		return ReportError(codes.PermissionDenied, "Fail to start job", "command", err.Error())
 	}
 
 	go func() {
@@ -117,44 +106,17 @@ func (j *Impl) Start() error {
 // Stop terminates a job. If the force flag is set to true, it will using SIGKILL to terminate the process, otherwise it will be SIGTERM
 func (j *Impl) Stop(force bool) error {
 	if j.getState() != proto.ProcessState_RUNNING || j.cmd.Process == nil {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job not running",
-				},
-			},
-		}
-
-		return ReportError(codes.AlreadyExists, "Fail to stop job", badRequest)
+		return ReportError(codes.AlreadyExists, "Fail to stop job", "job", "Job not running")
 	}
 
 	// Use SIGKILL to force the process to stop immediately, otherwise we will use SIGTERM
 	if force {
 		if err := j.cmd.Process.Signal(os.Kill); err != nil {
-			badRequest := &errdetails.BadRequest{
-				FieldViolations: []*errdetails.BadRequest_FieldViolation{
-					{
-						Field:       "job",
-						Description: err.Error(),
-					},
-				},
-			}
-
-			return ReportError(codes.Internal, "Fail to stop job", badRequest)
+			return ReportError(codes.Internal, "Fail to stop job", "job", err.Error())
 		}
 	} else {
 		if err := j.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			badRequest := &errdetails.BadRequest{
-				FieldViolations: []*errdetails.BadRequest_FieldViolation{
-					{
-						Field:       "job",
-						Description: err.Error(),
-					},
-				},
-			}
-
-			return ReportError(codes.Internal, "Fail to stop job", badRequest)
+			return ReportError(codes.Internal, "Fail to stop job", "job", err.Error())
 		}
 	}
 
@@ -163,28 +125,10 @@ func (j *Impl) Stop(force bool) error {
 	case _, ok := <-j.exitChan:
 		if !ok {
 			// exit channel is already closed, which means the process is already exited
-			badRequest := &errdetails.BadRequest{
-				FieldViolations: []*errdetails.BadRequest_FieldViolation{
-					{
-						Field:       "job",
-						Description: "Job not running",
-					},
-				},
-			}
-
-			return ReportError(codes.AlreadyExists, "Fail to stop job", badRequest)
+			return ReportError(codes.AlreadyExists, "Fail to stop job", "job", "Job not running")
 		}
 	case <-time.After(time.Second):
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "force",
-					Description: "Job takes too long to stop",
-				},
-			},
-		}
-
-		return ReportError(codes.DeadlineExceeded, "Fail to stop job", badRequest)
+		return ReportError(codes.DeadlineExceeded, "Fail to stop job", "force", "Job takes too long to stop")
 	}
 
 	j.changeState(proto.ProcessState_STOPPED)
@@ -240,9 +184,18 @@ func (j *Impl) changeState(state proto.ProcessState) {
 	j.state = state
 }
 
-func ReportError(code codes.Code, desc string, details ...protoiface.MessageV1) error {
+func ReportError(code codes.Code, desc string, badField string, detail string) error {
 	st := status.New(code, desc)
-	st, err := st.WithDetails(details...)
+	badRequest := &errdetails.BadRequest{
+		FieldViolations: []*errdetails.BadRequest_FieldViolation{
+			{
+				Field:       badField,
+				Description: detail,
+			},
+		},
+	}
+
+	st, err := st.WithDetails(badRequest)
 	if err != nil {
 		logrus.Errorf("Fail to generate error, err %s", err)
 		return status.Errorf(code, desc)

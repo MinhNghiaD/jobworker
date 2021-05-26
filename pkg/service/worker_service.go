@@ -9,7 +9,6 @@ import (
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
@@ -78,16 +77,7 @@ func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*
 func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to stop job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to stop job", "job", "Job ID is not correct")
 	}
 
 	if err := j.Stop(request.Force); err != nil {
@@ -102,16 +92,7 @@ func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (
 	// TODO Get Owner common name from certificate
 	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to query job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to query job", "job", "Job ID is not correct")
 	}
 
 	return j.Status(), nil
