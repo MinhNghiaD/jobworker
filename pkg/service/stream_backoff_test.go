@@ -17,7 +17,7 @@ import (
 // The client will request the log stream from this job and use the number counted in the log as the sequence number.
 // We will simulate connection interruption and see if the client is capable of resuming the stream.
 func TestStreamBackoff(t *testing.T) {
-	server, err := NewServer(7777, nil)
+	server, err := NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}

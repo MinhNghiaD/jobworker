@@ -127,7 +127,7 @@ func (manager *RoleManager) authorize(ctx context.Context, api string) (context.
 
 	right, err := manager.lookupAccessRight(claims, api)
 	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "user doesn't have access to API")
+		return nil, status.Errorf(codes.PermissionDenied, err.Error())
 	}
 
 	// Append user metatdata to the context
@@ -135,10 +135,6 @@ func (manager *RoleManager) authorize(ctx context.Context, api string) (context.
 		"user":        claims.Subject,
 		"accessRight": fmt.Sprintf("%v", right.accessAll),
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	return metadata.NewIncomingContext(ctx, md), nil
 }

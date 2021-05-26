@@ -20,7 +20,7 @@ import (
 // Data race, Goroutine leak, deadlock and system crash can be detected by this test
 func TestSimulation(t *testing.T) {
 	rand.Seed(1420)
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}

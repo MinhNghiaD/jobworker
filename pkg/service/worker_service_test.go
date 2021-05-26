@@ -24,7 +24,7 @@ import (
 
 // TestStartJobs tests the creation of a jobs via grpc unary request
 func TestStartJobs(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestStartJobs(t *testing.T) {
 // TestQueryShortJob tests status verification of short-running command. It will polling until the job exited normally and examined it status.
 // The test fails when the job status of an exited job is not corresponding to the prediction.
 func TestQueryShortJob(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestQueryShortJob(t *testing.T) {
 // TestQueryLongJob tests status verification of long-running command. It will polling to see if the jon is still running.
 // The test fails when a job is not running when it was predicted
 func TestQueryLongJob(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +386,7 @@ func TestQueryLongJob(t *testing.T) {
 // TestStopJobs tests the request to stop a job and query their exit status via grpc unary request.
 // The test will verify the error code returned by the request, as well as the exit status of the job
 func TestStopJobs(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -579,7 +579,7 @@ func TestStopJobs(t *testing.T) {
 
 // TestRequestBadJobs tests some of common unhappy cases, where the requests have bad arguments to be processed
 func TestRequestBadJobs(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -668,7 +668,7 @@ func TestRequestBadJobs(t *testing.T) {
 // and there are multiple clients request to receive its log.
 // The test fails when clients fail to receive the logs or when the logs received by the clients are not the same.
 func TestStreaming(t *testing.T) {
-	server, err := service.NewServer(7777, nil)
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}

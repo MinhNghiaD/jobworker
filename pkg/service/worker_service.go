@@ -29,21 +29,14 @@ type WorkerServer struct {
 	grpcServer  *grpc.Server
 	listener    net.Listener
 	jobsManager job.JobsManager
-	tlsConfig   *tls.Config
 }
 
 // NewServer creates a new server, listening at the specified port
-func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
+func NewServer(port int) (*WorkerServer, error) {
 	logrus.Infof("Listen at port %d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return nil, err
-	}
-
-	opts := serverConfig()
-	if tlsConfig != nil {
-		logrus.Info("Start server with TLS authentication")
-		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
 	jobsManager, err := job.NewManager()
@@ -52,16 +45,21 @@ func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
 	}
 
 	return &WorkerServer{
-		opts:        opts,
+		opts:        serverConfig(),
 		grpcServer:  nil,
 		listener:    listener,
 		jobsManager: jobsManager,
-		tlsConfig:   tlsConfig,
 	}, nil
 }
 
-// AddAuthorizer adds RBAC authorization to the server
-func (server *WorkerServer) AddAuthorizer(tokenCert *x509.Certificate) {
+// AddAuthentication adds mTLS authentication to the server
+func (server *WorkerServer) AddAuthentication(tlsConfig *tls.Config) {
+	logrus.Info("Start server with TLS authentication")
+	server.opts = append(server.opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+}
+
+// AddAuthorization adds RBAC authorization to the server
+func (server *WorkerServer) AddAuthorization(tokenCert *x509.Certificate) {
 	authorizer := auth.NewRoleManager(server.jobsManager)
 	server.opts = append(server.opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
 	server.opts = append(server.opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))

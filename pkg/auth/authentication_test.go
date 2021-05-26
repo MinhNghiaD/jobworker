@@ -17,11 +17,12 @@ import (
 // TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
 func TestVerifyCertificate(t *testing.T) {
 	connectionCheck := func(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) error {
-		server, err := service.NewServer(7777, serverTLSConfig)
+		server, err := service.NewServer(7777)
 		if err != nil {
 			return err
 		}
 
+		server.AddAuthentication(serverTLSConfig)
 		go server.Serve()
 		defer server.Close()
 
@@ -141,12 +142,13 @@ func TestVerifyProtocol(t *testing.T) {
 		t.Error(err)
 	}
 
-	server, err := service.NewServer(7777, serverCert.ServerTLSConfig())
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
+	server.AddAuthentication(serverCert.ServerTLSConfig())
 	go server.Serve()
 
 	cli1Cert, err := auth.LoadCerts(
@@ -208,12 +210,13 @@ func TestExpiration(t *testing.T) {
 		t.Error(err)
 	}
 
-	server, err := service.NewServer(7777, serverCert.ServerTLSConfig())
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
+	server.AddAuthentication(serverCert.ServerTLSConfig())
 	go server.Serve()
 
 	clientCert, err := auth.LoadCerts(

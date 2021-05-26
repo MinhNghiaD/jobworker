@@ -26,11 +26,12 @@ func TestRBAC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, err := service.NewServer(7777, serverCert.ServerTLSConfig())
+	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	server.AddAuthentication(serverCert.ServerTLSConfig())
 	go server.Serve()
 
 	adminCert, err := auth.LoadCerts(
