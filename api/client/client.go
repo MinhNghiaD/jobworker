@@ -144,7 +144,7 @@ func (receiver *LogReceiver) Read() (line *proto.Log, err error) {
 					return nil, err
 				}
 
-				// Decode error code, we allow backoff only when the error is Unavailable, DeadlineExceeded
+				// Decode error code, we allow backoff only when the error is Unavailable or DeadlineExceeded
 				logrus.Debugf("Fail to receive data, %s", err)
 				errCode := status.Convert(err).Code()
 				if errCode != codes.Unavailable && errCode != codes.DeadlineExceeded {

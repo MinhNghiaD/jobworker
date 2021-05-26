@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"github.com/MinhNghiaD/jobworker/pkg/auth"
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -25,10 +25,10 @@ import (
 // WorkerServer is gRPC Server of worker service
 type WorkerServer struct {
 	proto.UnimplementedWorkerServiceServer
+	opts        []grpc.ServerOption
 	grpcServer  *grpc.Server
 	listener    net.Listener
 	jobsManager job.JobsManager
-	authorizer  *auth.RoleManager
 	tlsConfig   *tls.Config
 }
 
@@ -51,23 +51,27 @@ func NewServer(port int, tlsConfig *tls.Config) (*WorkerServer, error) {
 		return nil, err
 	}
 
-	// Add authorization control
-	authorizer := auth.NewRoleManager(jobsManager)
-	opts = append(opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
-	opts = append(opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))
-
 	return &WorkerServer{
-		grpcServer:  grpc.NewServer(opts...),
+		opts:        opts,
+		grpcServer:  nil,
 		listener:    listener,
 		jobsManager: jobsManager,
-		authorizer:  authorizer,
 		tlsConfig:   tlsConfig,
 	}, nil
 }
 
+// AddAuthorizer adds RBAC authorization to the server
+func (server *WorkerServer) AddAuthorizer(tokenCert *x509.Certificate) {
+	authorizer := auth.NewRoleManager(server.jobsManager)
+	server.opts = append(server.opts, grpc.UnaryInterceptor(authorizer.AuthorizationUnaryInterceptor))
+	server.opts = append(server.opts, grpc.StreamInterceptor(authorizer.AuthorizationStreamInterceptor))
+}
+
 // Serve tarts the server
 func (server *WorkerServer) Serve() error {
+	server.grpcServer = grpc.NewServer(server.opts...)
 	proto.RegisterWorkerServiceServer(server.grpcServer, server)
+
 	return server.grpcServer.Serve(server.listener)
 }
 
@@ -82,7 +86,6 @@ func (server *WorkerServer) Close() error {
 
 // StartJob starts a job corresponding to user request
 func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	// TODO Get Owner common name from certificate
 	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
 		return nil, err
@@ -98,16 +101,7 @@ func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*
 func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequest) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to stop job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to stop job", "job", "Job ID is not correct")
 	}
 
 	if err := j.Stop(request.Force); err != nil {
@@ -121,16 +115,7 @@ func (server *WorkerServer) StopJob(ctx context.Context, request *proto.StopRequ
 func (server *WorkerServer) QueryJob(ctx context.Context, protoJob *proto.Job) (*proto.JobStatus, error) {
 	j, ok := server.jobsManager.GetJob(protoJob.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return nil, job.ReportError(codes.NotFound, "Fail to query job", badRequest)
+		return nil, job.ReportError(codes.NotFound, "Fail to query job", "job", "Job ID is not correct")
 	}
 
 	return j.Status(), nil
@@ -150,16 +135,7 @@ func (server *WorkerServer) StreamLog(request *proto.StreamRequest, stream proto
 
 	j, ok := server.jobsManager.GetJob(request.Job.Id)
 	if !ok {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "job",
-					Description: "Job ID is not correct",
-				},
-			},
-		}
-
-		return job.ReportError(codes.NotFound, "Fail to stream log", badRequest)
+		return job.ReportError(codes.NotFound, "Fail to stream log", "job", "Job ID is not correct")
 	}
 
 	ctx := stream.Context()

@@ -7,7 +7,6 @@ import (
 	"github.com/MinhNghiaD/jobworker/pkg/log"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -49,16 +48,7 @@ func (manager *JobsManagerImpl) CreateJob(command string, args []string, owner s
 	}
 
 	if _, err := exec.LookPath(command); err != nil {
-		badRequest := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "command",
-					Description: err.Error(),
-				},
-			},
-		}
-
-		return "", ReportError(codes.InvalidArgument, "Fail to start job", badRequest)
+		return "", ReportError(codes.InvalidArgument, "Fail to start job", "command", err.Error())
 	}
 
 	cmd := exec.Command(command, args...)

@@ -15,7 +15,6 @@ import (
 func TestConcurrency(t *testing.T) {
 	rand.Seed(1420)
 	manager, err := job.NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +85,6 @@ func TestConcurrency(t *testing.T) {
 	// Simulate client random access
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
 
