@@ -55,8 +55,8 @@ func TestVerifyCertificate(t *testing.T) {
 			"../../assets/cert/server_cert.pem",
 			"../../assets/cert/server_key.pem",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/admin_cert.pem",
-			"../../assets/cert/admin_key.pem",
+			"../../assets/cert/user1_cert.pem",
+			"../../assets/cert/user1_key.pem",
 			[]string{"../../assets/cert/client_ca_cert.pem"},
 			codes.OK,
 		},
@@ -75,8 +75,8 @@ func TestVerifyCertificate(t *testing.T) {
 			"../../assets/cert/selfsigned_server_cert.pem",
 			"../../assets/cert/selfsigned_server_key.pem",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/observer_cert.pem",
-			"../../assets/cert/observer_key.pem",
+			"../../assets/cert/user1_cert.pem",
+			"../../assets/cert/user1_key.pem",
 			[]string{"../../assets/cert/client_ca_cert.pem"},
 			codes.Unavailable,
 		},
@@ -95,8 +95,8 @@ func TestVerifyCertificate(t *testing.T) {
 			"../../assets/cert/untrusted_server_cert.pem",
 			"../../assets/cert/untrusted_server_key.pem",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/observer_cert.pem",
-			"../../assets/cert/observer_key.pem",
+			"../../assets/cert/user1_cert.pem",
+			"../../assets/cert/user1_key.pem",
 			[]string{"../../assets/cert/client_ca_cert.pem"},
 			codes.Unavailable,
 		},
@@ -150,8 +150,8 @@ func TestVerifyProtocol(t *testing.T) {
 	go server.Serve()
 
 	cli1Cert, err := auth.LoadCerts(
-		"../../assets/cert/admin_cert.pem",
-		"../../assets/cert/admin_key.pem",
+		"../../assets/cert/user1_cert.pem",
+		"../../assets/cert/user1_key.pem",
 		[]string{"../../assets/cert/server_ca_cert.pem"},
 	)
 	if err != nil {
@@ -217,8 +217,8 @@ func TestExpiration(t *testing.T) {
 	go server.Serve()
 
 	clientCert, err := auth.LoadCerts(
-		"../../assets/cert/admin_cert.pem",
-		"../../assets/cert/admin_key.pem",
+		"../../assets/cert/user1_cert.pem",
+		"../../assets/cert/user1_key.pem",
 		[]string{"../../assets/cert/server_ca_cert.pem"},
 	)
 	if err != nil {

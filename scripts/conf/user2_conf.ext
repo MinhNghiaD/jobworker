@@ -12,7 +12,7 @@ subjectAltName = dirName:dir_sect
 [dir_sect]
 C = FR
 O = Client
-OU = Observer
-CN = Observer 1
+OU = User
+CN = User 2
 
 

@@ -34,8 +34,8 @@ func TestRBAC(t *testing.T) {
 	go server.Serve()
 
 	adminCert, err := auth.LoadCerts(
-		"../../assets/cert/admin_cert.pem",
-		"../../assets/cert/admin_key.pem",
+		"../../assets/cert/user1_cert.pem",
+		"../../assets/cert/user1_key.pem",
 		[]string{"../../assets/cert/server_ca_cert.pem"},
 	)
 	if err != nil {
@@ -136,8 +136,8 @@ func TestRBAC(t *testing.T) {
 		{
 			"admin",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/admin_cert.pem",
-			"../../assets/cert/admin_key.pem",
+			"../../assets/cert/user2_cert.pem",
+			"../../assets/cert/user2_key.pem",
 			map[action]codes.Code{
 				&start:  codes.OK,
 				&stop:   codes.OK,
@@ -148,8 +148,8 @@ func TestRBAC(t *testing.T) {
 		{
 			"observer",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/observer_cert.pem",
-			"../../assets/cert/observer_key.pem",
+			"../../assets/cert/user2_cert.pem",
+			"../../assets/cert/user2_key.pem",
 			map[action]codes.Code{
 				&start:  codes.PermissionDenied,
 				&stop:   codes.PermissionDenied,
@@ -160,8 +160,8 @@ func TestRBAC(t *testing.T) {
 		{
 			"unauthorized",
 			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/impostor_cert.pem",
-			"../../assets/cert/impostor_key.pem",
+			"../../assets/cert/user2_cert.pem",
+			"../../assets/cert/user2_key.pem",
 			map[action]codes.Code{
 				&start:  codes.PermissionDenied,
 				&stop:   codes.PermissionDenied,

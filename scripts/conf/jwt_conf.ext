@@ -5,14 +5,15 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 IP.1 = ::1
 IP.2 = 127.0.0.1
+IP.3 = 0.0.0.0
 
 [extensions]
 subjectAltName = dirName:dir_sect
 
 [dir_sect]
 C = FR
-O = Client
-OU = Admin
-CN = Admin 1
+O = Jobworker
+OU = JWT
+CN = localhost
 
 

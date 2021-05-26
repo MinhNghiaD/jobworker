@@ -1,0 +1,5 @@
+name: Observer 1
+sub: observer1@jobworker.com
+email: observer1@jobworker.com
+roles: ["observer"]
+groups: ["job_worker"]

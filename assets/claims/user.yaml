@@ -1,0 +1,5 @@
+name: Default user
+sub: defailtuser@jobworker.com
+email: defailtuser@jobworker.com
+roles: ["user"]
+groups: ["job_worker"]

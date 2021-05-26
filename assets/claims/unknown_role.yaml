@@ -1,0 +1,5 @@
+name: Unauthorized user
+sub: unauthorized@jobworker.com
+email: unauthorized@jobworker.com
+roles: ["agent"]
+groups: ["job_worker"]

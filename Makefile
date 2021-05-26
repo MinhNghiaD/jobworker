@@ -28,6 +28,7 @@ build:
 	@-$(MAKE) proto
 	@-$(MAKE) update-vendor
 	@-$(MAKE) cert
+	@-$(MAKE) token
 	@echo "  >  Building binary..."
 	@go build -o $(BIN)/ ./...
 
@@ -43,6 +44,7 @@ test-grpc:
 
 test-auth:
 	@-$(MAKE) cert
+	@-$(MAKE) token
 	@go test -race ./pkg/auth/...
 
 test: test-log test-job test-grpc test-auth
@@ -67,3 +69,8 @@ lint: lint-go
 cert:
 	@echo "  >  Generating certificates"
 	@-bash $(SCRIPT)/cert_gen.sh
+
+.PHONY: token
+token:
+	@echo "  >  Generating JWT tokens"
+	@-bash $(SCRIPT)/jwt_gen.sh

@@ -62,5 +62,8 @@ cscope.*
 #Certificates
 /assets/cert
 
+#Tokens
+/assets/jwt
+
 #Protobuf generated file
 *.pb.go
