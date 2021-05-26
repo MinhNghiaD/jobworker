@@ -11,8 +11,6 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 // This test is internal test of connection backoff implementation. This test start a job that counting number from 0.
@@ -30,6 +28,11 @@ func TestStreamBackoff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fail to init client %s", err)
 	}
+
+	defer t.Cleanup(func() {
+		server.Close()
+		c.Close()
+	})
 
 	// start a job that count from 0 to 1000 then use it to compare the sequence received by the stream receiver
 	command := &proto.Command{
@@ -68,11 +71,12 @@ func TestStreamBackoff(t *testing.T) {
 			case <-time.After(2 * time.Second):
 			}
 
-			server, err = resetServer(server)
+			newListener, err := net.Listen("tcp", server.listener.Addr().String())
 			if err != nil {
 				t.Error(err)
 			}
 
+			server.listener = newListener
 			go server.Serve()
 		}
 	}()
@@ -94,7 +98,7 @@ func TestStreamBackoff(t *testing.T) {
 		} else {
 			sequence, err := strconv.Atoi(data["msg"])
 			if err == nil {
-				// Compare the sequence received
+				// Compare the received sequence
 				if sequence != counter {
 					t.Errorf("Sequence mismatch %d != %d", sequence, counter)
 					break
@@ -104,27 +108,4 @@ func TestStreamBackoff(t *testing.T) {
 			}
 		}
 	}
-
-	t.Cleanup(func() {
-		server.Close()
-		c.Close()
-	})
-}
-
-// resetServer switches the grpc service to a new server
-func resetServer(server *WorkerServer) (*WorkerServer, error) {
-	logrus.Infof("Reset listener")
-	newListener, err := net.Listen("tcp", server.listener.Addr().String())
-	if err != nil {
-		return nil, err
-	}
-
-	opts := serverConfig()
-	grpcServer := grpc.NewServer(opts...)
-
-	return &WorkerServer{
-		grpcServer:  grpcServer,
-		listener:    newListener,
-		jobsManager: server.jobsManager,
-	}, nil
 }
