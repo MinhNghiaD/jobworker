@@ -16,10 +16,13 @@ import (
 func TestToken(t *testing.T) {
 	keyPair, err := tls.LoadX509KeyPair("../../assets/cert/jwt_cert.pem", "../../assets/cert/jwt_key.pem")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	cert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checker := func(fileName string) error {
 		claimFile, err := os.Open(fileName)

@@ -2,7 +2,6 @@ package auth_test
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"testing"
 	"time"
@@ -17,33 +16,21 @@ import (
 
 // TestVerifyCertificate verifies mTLS authentication of the service between trusted parties
 func TestRBAC(t *testing.T) {
-	serverCert, err := auth.LoadCerts(
-		"../../assets/cert/server_cert.pem",
-		"../../assets/cert/server_key.pem",
-		[]string{"../../assets/cert/client_ca_cert.pem"},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	server, err := service.NewServer(7777)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	server.AddAuthentication(serverCert.ServerTLSConfig())
-	go server.Serve()
-
-	adminCert, err := auth.LoadCerts(
-		"../../assets/cert/user1_cert.pem",
-		"../../assets/cert/user1_key.pem",
-		[]string{"../../assets/cert/server_ca_cert.pem"},
-	)
+	jwtCert, err := auth.ReaderCertFile("../../assets/cert/jwt_cert.pem")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	admin, err := client.NewWithTLS("127.0.0.1:7777", adminCert.ClientTLSConfig())
+	server.AddAuthorization(jwtCert)
+	go server.Serve()
+
+	// TODO load admin token
+	admin, err := client.NewWithInsecure("127.0.0.1:7777")
 	if err != nil {
 		t.Error(err)
 		return
@@ -55,8 +42,9 @@ func TestRBAC(t *testing.T) {
 	})
 
 	type action *func(*client.Client) error
-	rbacCheck := func(t *testing.T, clientTLSConfig *tls.Config, expectedErrors map[action]codes.Code) {
-		cli, err := client.NewWithTLS("127.0.0.1:7777", clientTLSConfig)
+	rbacCheck := func(t *testing.T, rawToken string, expectedErrors map[action]codes.Code) {
+		// TODO setup token
+		cli, err := client.NewWithInsecure("127.0.0.1:7777")
 		if err != nil {
 			t.Error(err)
 			return
@@ -129,16 +117,12 @@ func TestRBAC(t *testing.T) {
 
 	testcases := []struct {
 		name           string
-		serverCAFiles  []string
-		clientCertFile string
-		clientKeyFile  string
+		tokenFile      string
 		expectedErrors map[action]codes.Code
 	}{
 		{
 			"admin",
-			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/user2_cert.pem",
-			"../../assets/cert/user2_key.pem",
+			"../../assets/jwt/admin.jwt",
 			map[action]codes.Code{
 				&start:  codes.OK,
 				&stop:   codes.OK,
@@ -148,21 +132,38 @@ func TestRBAC(t *testing.T) {
 		},
 		{
 			"observer",
-			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/user2_cert.pem",
-			"../../assets/cert/user2_key.pem",
+			"../../assets/jwt/observer.jwt",
 			map[action]codes.Code{
 				&start:  codes.PermissionDenied,
 				&stop:   codes.PermissionDenied,
 				&query:  codes.OK,
-				&stream: codes.OK,
+				&stream: codes.PermissionDenied,
 			},
 		},
 		{
-			"unauthorized",
-			[]string{"../../assets/cert/server_ca_cert.pem"},
-			"../../assets/cert/user2_cert.pem",
-			"../../assets/cert/user2_key.pem",
+			// User can ont stop and stream their own jobs
+			"user",
+			"../../assets/jwt/user.jwt",
+			map[action]codes.Code{
+				&start:  codes.OK,
+				&stop:   codes.PermissionDenied,
+				&query:  codes.OK,
+				&stream: codes.PermissionDenied,
+			},
+		},
+		{
+			"unknown role",
+			"../../assets/jwt/unknown_role.jwt",
+			map[action]codes.Code{
+				&start:  codes.PermissionDenied,
+				&stop:   codes.PermissionDenied,
+				&query:  codes.PermissionDenied,
+				&stream: codes.PermissionDenied,
+			},
+		},
+		{
+			"invalid token",
+			"../../assets/jwt/invalid.jwt",
 			map[action]codes.Code{
 				&start:  codes.PermissionDenied,
 				&stop:   codes.PermissionDenied,
@@ -174,13 +175,9 @@ func TestRBAC(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.name, func(t *testing.T) {
-			clientCert, err := auth.LoadCerts(testCase.clientCertFile, testCase.clientKeyFile, testCase.serverCAFiles)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-
-			rbacCheck(t, clientCert.ClientTLSConfig(), testCase.expectedErrors)
+			// TODO load token
+			rawToken := ""
+			rbacCheck(t, rawToken, testCase.expectedErrors)
 		})
 	}
 }

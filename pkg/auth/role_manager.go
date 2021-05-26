@@ -7,6 +7,7 @@ import (
 
 	"github.com/MinhNghiaD/jobworker/pkg/job"
 	token "github.com/libopenstorage/openstorage-sdk-auth/pkg/auth"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -122,11 +123,13 @@ func (manager *RoleManager) AuthorizationStreamInterceptor(
 func (manager *RoleManager) authorize(ctx context.Context, api string) (context.Context, error) {
 	claims, err := getClaimFromContext(ctx, manager.jwtCert)
 	if err != nil {
+		logrus.Warnf("Refuse user, %s", err.Error())
 		return nil, err
 	}
 
 	right, err := manager.lookupAccessRight(claims, api)
 	if err != nil {
+		logrus.Warnf("Refuse user %s request to API %s, %s", claims.Subject, api, err.Error())
 		return nil, status.Errorf(codes.PermissionDenied, err.Error())
 	}
 
