@@ -21,6 +21,7 @@ import (
 // WorkerServer is gRPC Server of worker service
 type WorkerServer struct {
 	proto.UnimplementedWorkerServiceServer
+	opts        []grpc.ServerOption
 	grpcServer  *grpc.Server
 	listener    net.Listener
 	jobsManager job.JobsManager
@@ -35,15 +36,14 @@ func NewServer(port int) (*WorkerServer, error) {
 	}
 
 	opts := serverConfig()
-	grpcServer := grpc.NewServer(opts...)
-
 	jobsManager, err := job.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorkerServer{
-		grpcServer:  grpcServer,
+		opts:        opts,
+		grpcServer:  nil,
 		listener:    listener,
 		jobsManager: jobsManager,
 	}, nil
@@ -51,7 +51,9 @@ func NewServer(port int) (*WorkerServer, error) {
 
 // Serve tarts the server
 func (server *WorkerServer) Serve() error {
+	server.grpcServer = grpc.NewServer(server.opts...)
 	proto.RegisterWorkerServiceServer(server.grpcServer, server)
+
 	return server.grpcServer.Serve(server.listener)
 }
 
@@ -66,7 +68,6 @@ func (server *WorkerServer) Close() error {
 
 // StartJob starts a job corresponding to user request
 func (server *WorkerServer) StartJob(ctx context.Context, cmd *proto.Command) (*proto.Job, error) {
-	// TODO Get Owner common name from RBAC
 	jobID, err := server.jobsManager.CreateJob(cmd.Cmd, cmd.Args, "User CN")
 	if err != nil {
 		return nil, err

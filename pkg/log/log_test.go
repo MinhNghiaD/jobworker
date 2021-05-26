@@ -98,7 +98,6 @@ func TestCreateLogFiles(t *testing.T) {
 // TestWriteLogs tests the writing to log files by checking the content written with the original message
 func TestWriteLogs(t *testing.T) {
 	logsManager, err := NewManager()
-
 	if err != nil {
 		t.Fatal(err)
 	}
