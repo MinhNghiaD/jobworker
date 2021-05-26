@@ -21,21 +21,21 @@ var (
 
 	// Start subcommand and its flags
 	start     = kingpin.Command("start", "Start a job on worker service.")
-	startCmd  = start.Flag("cmd", "command to be executed").Default("").String()
+	startCmd  = start.Flag("cmd", "command to be executed").Required().String()
 	startArgs = start.Arg("args", "arguments of the command").Strings()
 
 	// Stop subcommand and its flags
 	stop        = kingpin.Command("stop", "Stop a job on worker service.")
 	stopForce   = stop.Flag("force", "force job to terminate immediately").Default("false").Bool()
-	stoppingJob = stop.Flag("job", "job id").Default("").String()
+	stoppingJob = stop.Flag("job", "job id").Required().String()
 
 	// Query subcommand and its flags
 	query      = kingpin.Command("query", "Query status of a job on worker service.")
-	queriedJob = query.Flag("job", "job id").Default("").String()
+	queriedJob = query.Flag("job", "job id").Required().String()
 
 	// Stream subcommand and its flags
 	stream    = kingpin.Command("stream", "Stream log of a job on worker service.")
-	streamJob = stream.Flag("job", "job id").Default("").String()
+	streamJob = stream.Flag("job", "job id").Required().String()
 )
 
 func main() {
