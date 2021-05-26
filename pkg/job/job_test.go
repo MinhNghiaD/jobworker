@@ -413,7 +413,7 @@ func TestStopJob(t *testing.T) {
 			codes.InvalidArgument,
 		},
 		{
-			"Sort term command",
+			"Short term command",
 			"ls",
 			[]string{"-la"},
 			false,

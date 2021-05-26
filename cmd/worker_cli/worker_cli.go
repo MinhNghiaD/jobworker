@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
@@ -19,19 +21,21 @@ var (
 
 	// Start subcommand and its flags
 	start     = kingpin.Command("start", "Start a job on worker service.")
-	startCmd  = start.Flag("cmd", "command to be executed").Default("").String()
+	startCmd  = start.Flag("cmd", "command to be executed").Required().String()
 	startArgs = start.Arg("args", "arguments of the command").Strings()
 
 	// Stop subcommand and its flags
 	stop        = kingpin.Command("stop", "Stop a job on worker service.")
 	stopForce   = stop.Flag("force", "force job to terminate immediately").Default("false").Bool()
-	stoppingJob = stop.Flag("job", "job id").Default("").String()
+	stoppingJob = stop.Flag("job", "job id").Required().String()
 
 	// Query subcommand and its flags
 	query      = kingpin.Command("query", "Query status of a job on worker service.")
-	queriedJob = query.Flag("job", "job id").Default("").String()
+	queriedJob = query.Flag("job", "job id").Required().String()
 
-	// TODO: add Stream subcommand
+	// Stream subcommand and its flags
+	stream    = kingpin.Command("stream", "Stream log of a job on worker service.")
+	streamJob = stream.Flag("job", "job id").Required().String()
 )
 
 func main() {
@@ -50,6 +54,8 @@ func main() {
 		err = stopJob(cli, *stoppingJob, *stopForce)
 	case query.FullCommand():
 		err = queryJob(cli, *queriedJob)
+	case stream.FullCommand():
+		err = streamLog(cli, *streamJob)
 	default:
 		logrus.Fatal("Unknown subcommand")
 	}
@@ -89,12 +95,12 @@ func stopJob(c *client.Client, jobID string, force bool) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
-	st, err := c.StopJob(ctx, request)
+	jobStatus, err := c.StopJob(ctx, request)
 	if err != nil {
 		return err
 	}
 
-	printJobStatus(st)
+	printJobStatus(jobStatus)
 	return nil
 }
 
@@ -103,24 +109,50 @@ func queryJob(c *client.Client, jobID string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
-	st, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
+	jobStatus, err := c.QueryJob(ctx, &proto.Job{Id: jobID})
 	if err != nil {
 		return err
 	}
 
-	printJobStatus(st)
+	printJobStatus(jobStatus)
 	return nil
 }
 
+// queryJob queries the status of a job specified by jobID
+func streamLog(c *client.Client, jobID string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	receiver, err := c.GetLogReceiver(ctx, &proto.Job{Id: jobID})
+	var entry *proto.Log = nil
+
+	for err == nil {
+		entry, err = receiver.Read()
+		if err == nil {
+			var data map[string]string
+			if err := json.Unmarshal([]byte(entry.Entry), &data); err != nil {
+				logrus.Warn("Fail to decode json format")
+			} else {
+				fmt.Printf("%s: %s\n", data["source"], data["msg"])
+			}
+		}
+	}
+
+	if err == io.EOF {
+		return nil
+	}
+
+	return err
+}
+
 // printJobStatus displays the job status
-func printJobStatus(status *proto.JobStatus) {
-	fmt.Printf("Job %s: \n", status.GetJob().GetId())
-	fmt.Printf("\t - Command: %s \n", status.GetCommand().GetCmd())
-	fmt.Printf("\t - Creator: %s \n", status.GetOwner())
+func printJobStatus(jobStatus *proto.JobStatus) {
+	fmt.Printf("Job %s: \n", jobStatus.GetJob().GetId())
+	fmt.Printf("\t - Command: %s \n", jobStatus.GetCommand().GetCmd())
+	fmt.Printf("\t - Creator: %s \n", jobStatus.GetOwner())
 	fmt.Printf("\t - Status : \n")
-	fmt.Printf("\t\t - PID      : %d \n", status.GetStatus().Pid)
-	fmt.Printf("\t\t - State    : %v \n", status.GetStatus().State)
-	fmt.Printf("\t\t - Exit code: %d \n", status.GetStatus().ExitCode)
+	fmt.Printf("\t\t - PID      : %d \n", jobStatus.GetStatus().Pid)
+	fmt.Printf("\t\t - State    : %v \n", jobStatus.GetStatus().State)
+	fmt.Printf("\t\t - Exit code: %d \n", jobStatus.GetStatus().ExitCode)
 }
 
 func reportError(err error) {

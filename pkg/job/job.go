@@ -1,6 +1,7 @@
 package job
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"sync"
@@ -25,6 +26,8 @@ type Job interface {
 	Stop(force bool) error
 	// Query the current status of the job
 	Status() *proto.JobStatus
+	// GetLogReader returns the log reader that has read-only access to log file
+	GetLogReader(ctx context.Context) (log.Reader, error)
 }
 
 // TODO Handle QUEUING state when job queue and scheduler is implemented
@@ -161,6 +164,16 @@ func (j *Impl) Status() *proto.JobStatus {
 			ExitCode: int32(exitcode),
 		},
 	}
+}
+
+// GetLogReader returns a log.Reader object that allow us to read log from job's log file
+func (j *Impl) GetLogReader(ctx context.Context) (log.Reader, error) {
+	reader, err := j.logger.NewReader(ctx)
+	if err != nil {
+		return nil, ReportError(codes.ResourceExhausted, "Fail to init log reader", "job", err.Error())
+	}
+
+	return reader, nil
 }
 
 // String returns the command wrapped by the job

@@ -18,7 +18,7 @@ service WorkerService {
     rpc QueryJob(Job) returns (JobStatus) {}
 
     // Retrieve a stream of log and output of a job, specified by job ID.
-    rpc StreamLog(Job) returns (stream Log) {}
+    rpc StreamLog(StreamRequest) returns (stream Log) {}
 }
 
 message Command {
@@ -40,9 +40,18 @@ message StopRequest {
     bool force = 2;
 }
 
+message StreamRequest {
+    // The Job to be stopped.
+    Job job = 1;
+    // the nb of sequence of the starting point of the stream
+    int32 startPoint = 2;
+}
+
 message Log {
+    // Nb of sequence of the current entry in the stream
+    int32 nbSequence = 1;
     // A line of job log
-    string entry = 1;
+    string entry = 2;
 }
 
 message JobStatus {

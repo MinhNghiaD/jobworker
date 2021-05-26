@@ -95,6 +95,11 @@ Commands:
     Query status of a job on worker service.
 
     --job=""  job id
+  
+  stream [<flags>]
+    Stream log of a job on worker service.
+
+    --job=""  job id
 ```
 
 For examples:

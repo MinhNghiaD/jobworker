@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/MinhNghiaD/jobworker/api/client"
 	"github.com/MinhNghiaD/jobworker/api/worker/proto"
@@ -88,13 +89,13 @@ func TestSimulation(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := client.New("127.0.0.1:7777")
+			cli, err := client.New("127.0.0.1:7777")
 			if err != nil {
 				t.Errorf("Fail to init client %s", err)
 				return
 			}
 
-			defer client.Close()
+			defer cli.Close()
 
 			for j := 0; j < 50; j++ {
 				switch rand.Int() % 3 {
@@ -107,7 +108,7 @@ func TestSimulation(t *testing.T) {
 						Args: testcase.args,
 					}
 
-					job, err := client.StartJob(context.Background(), cmd)
+					job, err := cli.StartJob(context.Background(), cmd)
 					if err != nil {
 						logrus.Warningf("Fail to start job, %s", err)
 					} else {
@@ -122,11 +123,11 @@ func TestSimulation(t *testing.T) {
 						Force: false,
 					}
 
-					status, err := client.StopJob(context.Background(), request)
+					jobStatus, err := cli.StopJob(context.Background(), request)
 					if err != nil {
 						logrus.Warningf("Fail to stop job, %s", err)
 					} else {
-						logrus.Infof("Stop job, status %s", status)
+						logrus.Infof("Stop job, status %s", jobStatus)
 					}
 				case 2:
 					// Query job
@@ -134,13 +135,21 @@ func TestSimulation(t *testing.T) {
 						Id: jobIDs.RandomID(),
 					}
 
-					status, err := client.QueryJob(context.Background(), job)
+					jobStatus, err := cli.QueryJob(context.Background(), job)
 					if err != nil {
 						logrus.Warningf("Fail to query job, %s", err)
 					} else {
-						logrus.Infof("Query job, status %s", status)
+						logrus.Infof("Query job, status %s", jobStatus)
 					}
 				}
+			}
+
+			// Stream log for 5 seconds after finished all uniary operations
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			receiver, err := cli.GetLogReceiver(ctx, &proto.Job{Id: jobIDs.RandomID()})
+			for err == nil {
+				_, err = receiver.Read()
 			}
 		}()
 	}
